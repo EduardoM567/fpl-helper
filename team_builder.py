@@ -109,39 +109,67 @@ def build_team(strategy='balanced', budget=100.0):
     
     # Sort by score descending
     players.sort(key=lambda x: x['score'], reverse=True)
-    
+
+    # Set minimum price thresholds per position based on strategy
+    min_prices = {
+        'balanced': {'GKP': 4.5, 'DEF': 4.5, 'MID': 6.0, 'FWD': 6.5},
+        'attack':   {'GKP': 4.0, 'DEF': 4.0, 'MID': 7.0, 'FWD': 8.0},
+        'defense':  {'GKP': 5.0, 'DEF': 5.5, 'MID': 5.0, 'FWD': 5.5},
+        'budget':   {'GKP': 4.0, 'DEF': 4.0, 'MID': 4.5, 'FWD': 4.5},
+        'form':     {'GKP': 4.5, 'DEF': 4.5, 'MID': 6.0, 'FWD': 6.5},
+    }
+
+    thresholds = min_prices.get(strategy, min_prices['balanced'])
+
+    # First pass — pick premium players meeting price threshold
     squad = []
     team_counts = {}
     position_counts = {'GKP': 0, 'DEF': 0, 'MID': 0, 'FWD': 0}
     remaining_budget = budget
-    
+
     for player in players:
+        if len(squad) >= SQUAD_SIZE:
+            break
         pos = player['position']
         team = player['team']
         price = player['price']
-        
-        # Check position limit
+
         if position_counts[pos] >= POSITION_LIMITS[pos]['max']:
             continue
-        
-        # Check team limit
         if team_counts.get(team, 0) >= MAX_PER_TEAM:
             continue
-        
-        # Check budget
         if price > remaining_budget:
             continue
-        
-        # Check squad size
-        if len(squad) >= SQUAD_SIZE:
-            break
-        
-        # Add player to squad
+        if price < thresholds.get(pos, 4.0):
+            continue
+
         squad.append(player)
         position_counts[pos] += 1
         team_counts[team] = team_counts.get(team, 0) + 1
         remaining_budget -= price
-    
+
+    # Second pass — fill remaining spots with best available
+    for player in players:
+        if len(squad) >= SQUAD_SIZE:
+            break
+        if player in squad:
+            continue
+        pos = player['position']
+        team = player['team']
+        price = player['price']
+
+        if position_counts[pos] >= POSITION_LIMITS[pos]['max']:
+            continue
+        if team_counts.get(team, 0) >= MAX_PER_TEAM:
+            continue
+        if price > remaining_budget:
+            continue
+
+        squad.append(player)
+        position_counts[pos] += 1
+        team_counts[team] = team_counts.get(team, 0) + 1
+        remaining_budget -= price
+
     return {
         'squad': squad,
         'total_cost': round(budget - remaining_budget, 1),
