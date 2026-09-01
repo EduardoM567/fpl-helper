@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FPL Helper — Build Your Perfect Squad</title>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg:        #080c14;
+            --surface:   #111827;
+            --surface2:  #1c2637;
+            --border:    #1f2d40;
+            --green:     #00ff87;
+            --green-dim: rgba(0,255,135,0.12);
+            --blue:      #3b82f6;
+            --amber:     #f59e0b;
+            --red:       #ef4444;
+            --text:      #e2e8f0;
+            --muted:     #64748b;
+            --radius:    12px;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.5;
+        }
+
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(8,12,20,0.85);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border);
+            padding: 0 32px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .logo { display: flex; align-items: center; gap: 10px; }
+        .logo-icon {
+            width: 36px; height: 36px;
+            background: var(--green);
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px;
+        }
+        .logo-text { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 2px; }
+        .logo-text span { color: var(--green); }
+        .header-right { display: flex; align-items: center; gap: 16px; }
+        .season-pill {
+            background: var(--green-dim);
+            border: 1px solid rgba(0,255,135,0.3);
+            color: var(--green);
+            padding: 5px 14px; border-radius: 20px;
+            font-size: 12px; font-weight: 700; letter-spacing: 0.5px;
+        }
+        .live-dot { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+        .live-dot::before {
+            content: ''; width: 7px; height: 7px; border-radius: 50%;
+            background: var(--green); animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%,100% { opacity:1; transform:scale(1); }
+            50% { opacity:0.5; transform:scale(0.8); }
+        }
+
+        .layout { display: flex; min-height: calc(100vh - 64px); }
+
+        .sidebar {
+            width: 220px; min-width: 220px;
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            padding: 24px 12px;
+            display: flex; flex-direction: column; gap: 4px;
+        }
+        .nav-label {
+            font-size: 10px; font-weight: 700; color: var(--muted);
+            text-transform: uppercase; letter-spacing: 1.5px;
+            padding: 0 12px; margin-bottom: 8px; margin-top: 16px;
+        }
+        .nav-label:first-child { margin-top: 0; }
+        .nav-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 12px; border-radius: 8px; cursor: pointer;
+            font-size: 14px; font-weight: 500; color: var(--muted);
+            transition: all 0.15s; border: none; background: none;
+            width: 100%; text-align: left;
+        }
+        .nav-item:hover { background: var(--surface2); color: var(--text); }
+        .nav-item.active { background: var(--green-dim); color: var(--green); font-weight: 600; }
+        .nav-item .icon { font-size: 16px; width: 20px; text-align: center; }
+
+        .main { flex: 1; padding: 32px; overflow-y: auto; }
+
+        .page-header { margin-bottom: 28px; }
+        .page-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 40px; letter-spacing: 2px; line-height: 1; margin-bottom: 6px;
+        }
+        .page-title span { color: var(--green); }
+        .page-subtitle { color: var(--muted); font-size: 14px; }
+
+        .section { display: none; }
+        .section.active { display: block; }
+
+        .search-bar { position: relative; margin-bottom: 28px; }
+        .search-bar input {
+            width: 100%;
+            padding: 16px 20px 16px 52px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text); font-size: 15px;
+            font-family: 'Inter', sans-serif;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .search-bar input:focus {
+            outline: none; border-color: var(--green);
+            box-shadow: 0 0 0 3px rgba(0,255,135,0.08);
+        }
+        .search-bar input::placeholder { color: var(--muted); }
+        .search-icon {
+            position: absolute; left: 18px; top: 50%;
+            transform: translateY(-50%); color: var(--muted);
+            font-size: 18px; pointer-events: none;
+        }
+
+        .player-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 16px;
+        }
+
+        .player-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            transition: all 0.2s;
+            cursor: pointer;
+            animation: fadeUp 0.3s ease both;
+        }
+        .player-card:hover {
+            border-color: #2d3f55;
+            transform: translateY(-3px);
+            box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+        }
+        @keyframes fadeUp {
+            from { opacity:0; transform:translateY(12px); }
+            to { opacity:1; transform:translateY(0); }
+        }
+
+        .card-top {
+            display: flex; justify-content: space-between;
+            align-items: flex-start; margin-bottom: 16px;
+        }
+        .card-pos-bar { width: 3px; height: 40px; border-radius: 2px; margin-right: 12px; flex-shrink: 0; }
+        .GKP .card-pos-bar { background: var(--amber); }
+        .DEF .card-pos-bar { background: #10b981; }
+        .MID .card-pos-bar { background: var(--blue); }
+        .FWD .card-pos-bar { background: var(--red); }
+
+        .card-identity { display: flex; align-items: center; flex: 1; }
+        .card-info { flex: 1; }
+        .card-name { font-size: 17px; font-weight: 700; color: var(--text); line-height: 1.2; }
+        .card-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
+        .card-price {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 20px; font-weight: 600; color: var(--green);
+        }
+
+        .pos-tag {
+            display: inline-block; padding: 2px 7px; border-radius: 4px;
+            font-size: 10px; font-weight: 700; margin-left: 6px;
+        }
+        .GKP .pos-tag { background: rgba(245,158,11,0.15); color: var(--amber); }
+        .DEF .pos-tag { background: rgba(16,185,129,0.15); color: #10b981; }
+        .MID .pos-tag { background: rgba(59,130,246,0.15); color: var(--blue); }
+        .FWD .pos-tag { background: rgba(239,68,68,0.15); color: var(--red); }
+
+        .card-stats {
+            display: grid; grid-template-columns: repeat(4,1fr);
+            gap: 6px; margin-bottom: 14px;
+        }
+        .card-stat { background: var(--bg); border-radius: 8px; padding: 8px 6px; text-align: center; }
+        .card-stat-val { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 600; color: var(--text); }
+        .card-stat-val.green { color: var(--green); }
+        .card-stat-lbl { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+
+        .card-footer { display: flex; justify-content: space-between; align-items: center; }
+
+        .status-chip {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;
+        }
+        .status-chip::before { content:''; width:6px; height:6px; border-radius:50%; }
+        .s-a { background:rgba(16,185,129,0.12); color:#10b981; border:1px solid rgba(16,185,129,0.25); }
+        .s-a::before { background:#10b981; }
+        .s-d { background:rgba(245,158,11,0.12); color:var(--amber); border:1px solid rgba(245,158,11,0.25); }
+        .s-d::before { background:var(--amber); }
+        .s-i { background:rgba(239,68,68,0.12); color:var(--red); border:1px solid rgba(239,68,68,0.25); }
+        .s-i::before { background:var(--red); }
+        .s-n { background:rgba(100,116,139,0.12); color:var(--muted); border:1px solid rgba(100,116,139,0.25); }
+        .s-n::before { background:var(--muted); }
+
+        .ownership-bar-wrap { flex:1; margin: 0 12px; }
+        .ownership-label { font-size:10px; color:var(--muted); margin-bottom:3px; display:flex; justify-content:space-between; }
+        .ownership-bar { height:4px; background:var(--border); border-radius:2px; overflow:hidden; }
+        .ownership-fill { height:100%; background:var(--green); border-radius:2px; transition:width 0.6s ease; }
+
+        .filter-row { display:flex; gap:10px; margin-bottom:24px; flex-wrap:wrap; align-items:center; }
+        select {
+            padding:9px 14px; background:var(--surface); border:1px solid var(--border);
+            border-radius:8px; color:var(--text); font-size:13px;
+            font-family:'Inter',sans-serif; cursor:pointer; transition:border-color 0.2s;
+        }
+        select:focus { outline:none; border-color:var(--green); }
+
+        .btn {
+            padding:10px 20px; background:var(--green); color:#080c14;
+            border:none; border-radius:8px; cursor:pointer; font-weight:700;
+            font-size:13px; font-family:'Inter',sans-serif; transition:all 0.15s;
+            display:inline-flex; align-items:center; gap:6px;
+        }
+        .btn:hover { background:#00e87a; transform:translateY(-1px); box-shadow:0 4px 16px rgba(0,255,135,0.25); }
+        .btn-lg { padding:14px 28px; font-size:15px; width:100%; justify-content:center; border-radius:10px; }
+        .btn-outline { background:transparent; border:1px solid var(--border); color:var(--text); }
+        .btn-outline:hover { background:var(--surface2); border-color:#2d3f55; box-shadow:none; }
+
+        .strategy-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:20px; }
+        .strat-card {
+            background:var(--surface); border:2px solid var(--border);
+            border-radius:10px; padding:18px 12px; text-align:center; cursor:pointer; transition:all 0.15s;
+        }
+        .strat-card:hover { border-color:#2d3f55; transform:translateY(-2px); }
+        .strat-card.active { border-color:var(--green); background:var(--green-dim); }
+        .strat-emoji { font-size:26px; display:block; margin-bottom:8px; }
+        .strat-name { font-size:12px; font-weight:700; color:var(--text); display:block; }
+        .strat-desc { font-size:10px; color:var(--muted); display:block; margin-top:3px; }
+
+        .pitch-wrapper {
+            background: linear-gradient(180deg, #1a5c2a 0%, #1e6b2f 50%, #1a5c2a 100%);
+            border-radius:16px; padding:24px 16px; margin-top:24px;
+            position:relative; overflow:hidden; border:2px solid rgba(255,255,255,0.06);
+        }
+        .pitch-lines { position:absolute; inset:0; pointer-events:none; }
+        .pitch-lines::before {
+            content:''; position:absolute; left:50%; top:0; bottom:0;
+            width:1px; background:rgba(255,255,255,0.12);
+        }
+        .pitch-lines::after {
+            content:''; position:absolute; left:50%; top:50%;
+            transform:translate(-50%,-50%); width:80px; height:80px;
+            border-radius:50%; border:1px solid rgba(255,255,255,0.12);
+        }
+        .pitch-row { display:flex; justify-content:center; gap:12px; margin-bottom:16px; }
+        .pitch-row:last-child { margin-bottom:0; }
+        .pitch-player { text-align:center; width:72px; cursor:pointer; }
+        .pitch-player:hover .pitch-avatar { transform:scale(1.1); }
+        .pitch-avatar {
+            width:48px; height:48px; border-radius:50%;
+            display:flex; align-items:center; justify-content:center;
+            font-size:18px; margin:0 auto 4px;
+            border:2px solid rgba(255,255,255,0.2);
+            position:relative; transition:transform 0.2s;
+            overflow:hidden;
+        }
+        .pitch-avatar img { width:100%; height:100%; object-fit:cover; }
+        .pitch-avatar.GKP { background:rgba(245,158,11,0.3); border-color:var(--amber); }
+        .pitch-avatar.DEF { background:rgba(16,185,129,0.3); border-color:#10b981; }
+        .pitch-avatar.MID { background:rgba(59,130,246,0.3); border-color:var(--blue); }
+        .pitch-avatar.FWD { background:rgba(239,68,68,0.3); border-color:var(--red); }
+        .pitch-c-badge {
+            position:absolute; top:-2px; right:-2px; width:16px; height:16px;
+            background:var(--amber); color:#080c14; border-radius:50%;
+            font-size:8px; font-weight:900; display:flex; align-items:center; justify-content:center;
+        }
+        .pitch-vc-badge {
+            position:absolute; top:-2px; right:-2px; width:16px; height:16px;
+            background:#6b7280; color:#fff; border-radius:50%;
+            font-size:8px; font-weight:900; display:flex; align-items:center; justify-content:center;
+        }
+        .pitch-name {
+            font-size:10px; font-weight:700; color:#fff;
+            text-shadow:0 1px 3px rgba(0,0,0,0.8);
+            white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+        }
+        .pitch-price { font-size:9px; color:rgba(255,255,255,0.7); font-family:'JetBrains Mono',monospace; }
+
+        .bench-label {
+            text-align:center; font-size:10px; font-weight:700;
+            color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:2px;
+            margin:20px 0 12px; position:relative;
+        }
+        .bench-label::before, .bench-label::after {
+            content:''; position:absolute; top:50%; width:30%; height:1px;
+            background:rgba(255,255,255,0.1);
+        }
+        .bench-label::before { left:10%; }
+        .bench-label::after { right:10%; }
+
+        .squad-summary {
+            display:grid; grid-template-columns:repeat(4,1fr);
+            gap:12px; margin-bottom:20px;
+        }
+        .summary-card {
+            background:var(--surface); border:1px solid var(--border);
+            border-radius:10px; padding:16px; text-align:center;
+        }
+        .summary-val { font-family:'JetBrains Mono',monospace; font-size:22px; font-weight:700; color:var(--green); }
+        .summary-lbl { font-size:11px; color:var(--muted); margin-top:4px; }
+
+        .loading-state, .empty-state { text-align:center; padding:80px 20px; color:var(--muted); }
+        .loading-state .spinner {
+            width:36px; height:36px; border:3px solid var(--border);
+            border-top-color:var(--green); border-radius:50%;
+            animation:spin 0.8s linear infinite; margin:0 auto 16px;
+        }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        .empty-icon { font-size:52px; margin-bottom:16px; }
+        .empty-title { font-size:16px; font-weight:600; color:var(--text); margin-bottom:8px; }
+        .empty-sub { font-size:13px; }
+
+        @media (max-width:900px) {
+            .sidebar { display:none; }
+            .strategy-grid { grid-template-columns:repeat(3,1fr); }
+        }
+        @media (max-width:600px) {
+            .main { padding:20px 16px; }
+            .squad-summary { grid-template-columns:repeat(2,1fr); }
+            .strategy-grid { grid-template-columns:repeat(2,1fr); }
+            .card-stats { grid-template-columns:repeat(2,1fr); }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo">
+        <div class="logo-icon">⚽</div>
+        <div class="logo-text">FPL<span>Helper</span></div>
+    </div>
+    <div class="header-right">
+        <div class="live-dot">Live Data</div>
+        <div class="season-pill">2025/26</div>
+    </div>
+</header>
+
+<div class="layout">
+    <nav class="sidebar">
+        <div class="nav-label">Discover</div>
+        <button class="nav-item active" onclick="showSection('search', this)">
+            <span class="icon">🔍</span> Player Search
+        </button>
+        <button class="nav-item" onclick="showSection('top', this)">
+            <span class="icon">📊</span> Top Players
+        </button>
+        <div class="nav-label">Build</div>
+        <button class="nav-item" onclick="showSection('builder', this)">
+            <span class="icon">🏗️</span> Team Builder
+        </button>
+    </nav>
+
+    <main class="main">
+
+        <!-- Search -->
+        <div id="search" class="section active">
+            <div class="page-header">
+                <div class="page-title">Player <span>Search</span></div>
+                <div class="page-subtitle">Find any Premier League player and analyze their stats</div>
+            </div>
+            <div class="search-bar">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="searchInput"
+                    placeholder="Search by name — try Palmer, Haaland, Gakpo…"
+                    oninput="searchPlayers()">
+            </div>
+            <div id="searchResults">
+                <div class="empty-state">
+                    <div class="empty-icon">⚽</div>
+                    <div class="empty-title">Search for a player</div>
+                    <div class="empty-sub">Type a name above to see stats and availability</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Players -->
+        <div id="top" class="section">
+            <div class="page-header">
+                <div class="page-title">Top <span>Players</span></div>
+                <div class="page-subtitle">Ranked by key metrics — updated every hour</div>
+            </div>
+            <div class="filter-row">
+                <select id="posFilter" onchange="loadTopPlayers()">
+                    <option value="all">All Positions</option>
+                    <option value="GKP">Goalkeepers</option>
+                    <option value="DEF">Defenders</option>
+                    <option value="MID">Midfielders</option>
+                    <option value="FWD">Forwards</option>
+                </select>
+                <select id="sortFilter" onchange="loadTopPlayers()">
+                    <option value="form">Form</option>
+                    <option value="total_points">Total Points</option>
+                    <option value="points_per_game">Points Per Game</option>
+                    <option value="ep_next">xP Next GW</option>
+                    <option value="ict_index">ICT Index</option>
+                    <option value="selected_by">Ownership %</option>
+                </select>
+                <button class="btn btn-outline" onclick="loadTopPlayers()">↻ Refresh</button>
+            </div>
+            <div id="topResults">
+                <div class="loading-state"><div class="spinner"></div>Loading players…</div>
+            </div>
+        </div>
+
+        <!-- Team Builder -->
+        <div id="builder" class="section">
+            <div class="page-header">
+                <div class="page-title">Team <span>Builder</span></div>
+                <div class="page-subtitle">Pick a strategy and we'll build your optimal £100m squad</div>
+            </div>
+            <div class="strategy-grid">
+                <div class="strat-card active" onclick="selectStrat('balanced', this)">
+                    <span class="strat-emoji">⚖️</span>
+                    <span class="strat-name">Balanced</span>
+                    <span class="strat-desc">Best all-round</span>
+                </div>
+                <div class="strat-card" onclick="selectStrat('attack', this)">
+                    <span class="strat-emoji">⚔️</span>
+                    <span class="strat-name">Attack</span>
+                    <span class="strat-desc">Premium forwards</span>
+                </div>
+                <div class="strat-card" onclick="selectStrat('defense', this)">
+                    <span class="strat-emoji">🛡️</span>
+                    <span class="strat-name">Defense</span>
+                    <span class="strat-desc">Clean sheet focus</span>
+                </div>
+                <div class="strat-card" onclick="selectStrat('budget', this)">
+                    <span class="strat-emoji">💰</span>
+                    <span class="strat-name">Budget</span>
+                    <span class="strat-desc">Best value picks</span>
+                </div>
+                <div class="strat-card" onclick="selectStrat('form', this)">
+                    <span class="strat-emoji">🔥</span>
+                    <span class="strat-name">Form</span>
+                    <span class="strat-desc">Hot streak players</span>
+                </div>
+            </div>
+            <button class="btn btn-lg" onclick="buildTeam()">⚡ Build My Squad</button>
+            <div id="teamResult"></div>
+        </div>
+
+    </main>
+</div>
+
+<!-- Player Modal -->
+<div id="playerModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:1000; backdrop-filter:blur(4px);" onclick="closeModal(event)">
+    <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:var(--surface); border:1px solid var(--border); border-radius:16px; width:90%; max-width:500px; max-height:85vh; overflow-y:auto; padding:28px;">
+        <button onclick="document.getElementById('playerModal').style.display='none'"
+            style="position:absolute; top:16px; right:16px; background:var(--surface2); border:none; color:var(--muted); width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center;">✕</button>
+        <div id="modalContent"></div>
+    </div>
+</div>
+
+<script>
+let activeStrategy = 'balanced';
+
+function posEmoji(pos) {
+    const emojis = {'GKP':'🧤','DEF':'🛡️','MID':'⚡','FWD':'⚽'};
+    return emojis[pos] || '⚽';
+}
+
+function showSection(id, el) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    el.classList.add('active');
+    if (id === 'top') loadTopPlayers();
+}
+
+function selectStrat(s, el) {
+    activeStrategy = s;
+    document.querySelectorAll('.strat-card').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+}
+
+function statusChip(status, text) {
+    return '<span class="status-chip s-' + status + '">' + text + '</span>';
+}
+
+function fdrInfo(difficulty) {
+    const colors = {1:'#10b981',2:'#84cc16',3:'#f59e0b',4:'#f97316',5:'#ef4444'};
+    const labels = {1:'Very Easy',2:'Easy',3:'Medium',4:'Hard',5:'Very Hard'};
+    return {
+        color: colors[difficulty] || '#64748b',
+        label: labels[difficulty] || 'Unknown'
+    };
+}
+
+function playerCard(p) {
+    const own = Math.min(parseFloat(p.selected_by), 100);
+    const fix = p.next_fixture || {};
+    const fdr = fdrInfo(fix.difficulty);
+    const homeAway = fix.opponent ? (fix.is_home ? 'H' : 'A') : '';
+
+    return '<div class="player-card ' + p.position + '" onclick="showPlayerModal(' + p.id + ')">' +
+        '<div class="card-top">' +
+            '<div class="card-identity">' +
+                '<div class="card-pos-bar"></div>' +
+                '<div class="card-info">' +
+                    '<div class="card-name">' + p.name + '<span class="pos-tag">' + p.position + '</span></div>' +
+                    '<div class="card-sub">' + p.team + '</div>' +
+                '</div>' +
+            '</div>' +
+            '<div class="card-price">£' + p.price + 'm</div>' +
+        '</div>' +
+        '<div class="card-stats">' +
+            '<div class="card-stat"><div class="card-stat-val green">' + p.form + '</div><div class="card-stat-lbl">Form</div></div>' +
+            '<div class="card-stat"><div class="card-stat-val">' + p.total_points + '</div><div class="card-stat-lbl">Total Pts</div></div>' +
+            '<div class="card-stat"><div class="card-stat-val">' + p.points_per_game + '</div><div class="card-stat-lbl">Pts/Game</div></div>' +
+            '<div class="card-stat"><div class="card-stat-val green">' + p.ep_next + '</div><div class="card-stat-lbl">xP Next</div></div>' +
+            '<div class="card-stat"><div class="card-stat-val">' + p.goals + '</div><div class="card-stat-lbl">Goals</div></div>' +
+            '<div class="card-stat"><div class="card-stat-val">' + p.assists + '</div><div class="card-stat-lbl">Assists</div></div>' +
+            '<div class="card-stat"><div class="card-stat-val">' + p.expected_goals + '</div><div class="card-stat-lbl">xG</div></div>' +
+            '<div class="card-stat"><div class="card-stat-val">' + p.ict_index + '</div><div class="card-stat-lbl">ICT</div></div>' +
+        '</div>' +
+        '<div class="card-footer">' +
+            statusChip(p.status, p.status_text || 'Available') +
+            '<div class="ownership-bar-wrap">' +
+                '<div class="ownership-label"><span>Ownership</span><span>' + p.selected_by + '%</span></div>' +
+                '<div class="ownership-bar"><div class="ownership-fill" style="width:' + own + '%"></div></div>' +
+            '</div>' +
+        '</div>' +
+        (fix.opponent ?
+            '<div style="margin-top:10px;padding:8px 12px;background:var(--bg);border-radius:8px;display:flex;justify-content:space-between;align-items:center;">' +
+                '<span style="font-size:12px;color:var(--muted);">GW' + fix.gameweek + ': <strong style="color:var(--text)">' + fix.opponent + '</strong> <span style="color:var(--muted)">(' + homeAway + ')</span></span>' +
+                '<span style="font-size:10px;font-weight:700;color:' + fdr.color + ';background:' + fdr.color + '22;padding:3px 8px;border-radius:10px;">' + fdr.label + '</span>' +
+            '</div>' : '') +
+    '</div>';
+}
+
+let searchTimer;
+async function searchPlayers() {
+    clearTimeout(searchTimer);
+    const q = document.getElementById('searchInput').value.trim();
+    if (!q) {
+        document.getElementById('searchResults').innerHTML =
+            '<div class="empty-state"><div class="empty-icon">⚽</div><div class="empty-title">Search for a player</div><div class="empty-sub">Type a name above to see stats and availability</div></div>';
+        return;
+    }
+    searchTimer = setTimeout(async () => {
+        const res = await fetch('/search?q=' + encodeURIComponent(q));
+        const players = await res.json();
+        if (!players.length) {
+            document.getElementById('searchResults').innerHTML =
+                '<div class="empty-state"><div class="empty-icon">🤷</div><div class="empty-title">No players found</div><div class="empty-sub">Try a different name or spelling</div></div>';
+            return;
+        }
+        document.getElementById('searchResults').innerHTML =
+            '<div class="player-grid">' + players.map(playerCard).join('') + '</div>';
+    }, 250);
+}
+
+async function loadTopPlayers() {
+    const pos = document.getElementById('posFilter').value;
+    const sort = document.getElementById('sortFilter').value;
+    document.getElementById('topResults').innerHTML =
+        '<div class="loading-state"><div class="spinner"></div>Loading players…</div>';
+    const res = await fetch('/top-players?position=' + pos + '&sort=' + sort + '&limit=20');
+    const players = await res.json();
+    document.getElementById('topResults').innerHTML =
+        '<div class="player-grid">' + players.map(playerCard).join('') + '</div>';
+}
+
+function pitchPlayerHTML(p, isBench) {
+    const isC = p._captain;
+    const isVC = p._vc;
+    const photoHTML = p.photo_url ?
+        '<img src="' + p.photo_url + '" alt="' + p.name + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.style.display=\'none\'">' :
+        posEmoji(p.position);
+
+    return '<div class="pitch-player" onclick="showPlayerModal(' + p.id + ')">' +
+        '<div class="pitch-avatar ' + p.position + '">' +
+            photoHTML +
+            (isC ? '<div class="pitch-c-badge">C</div>' : '') +
+            (isVC ? '<div class="pitch-vc-badge">V</div>' : '') +
+        '</div>' +
+        '<div class="pitch-name">' + p.name + '</div>' +
+        '<div class="pitch-price">£' + p.price + 'm</div>' +
+    '</div>';
+}
+
+function pitchRow(players, isBench) {
+    return '<div class="pitch-row">' + players.map(p => pitchPlayerHTML(p, isBench)).join('') + '</div>';
+}
+
+async function buildTeam() {
+    document.getElementById('teamResult').innerHTML =
+        '<div class="loading-state"><div class="spinner"></div>Building your squad…</div>';
+
+    const res = await fetch('/build-team', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({strategy: activeStrategy, budget: 100.0})
+    });
+    const r = await res.json();
+
+    if (r.captain) {
+        const cap = r.squad.find(p => p.id === r.captain.id);
+        if (cap) cap._captain = true;
+    }
+    if (r.vice_captain) {
+        const vc = r.squad.find(p => p.id === r.vice_captain.id);
+        if (vc) vc._vc = true;
+    }
+
+    const starters = r.starters;
+    const bench = r.bench || [];
+    const totalXP = r.squad.reduce((a, p) => a + (p.ep_next || 0), 0).toFixed(1);
+    const formation = starters.formation || '4-4-2';
+
+    document.getElementById('teamResult').innerHTML =
+        '<div class="squad-summary">' +
+            '<div class="summary-card"><div class="summary-val">£' + r.total_cost + 'm</div><div class="summary-lbl">Total Cost</div></div>' +
+            '<div class="summary-card"><div class="summary-val">£' + r.remaining_budget + 'm</div><div class="summary-lbl">In Bank</div></div>' +
+            '<div class="summary-card"><div class="summary-val">' + totalXP + '</div><div class="summary-lbl">Total xP Next GW</div></div>' +
+            '<div class="summary-card"><div class="summary-val">' + formation + '</div><div class="summary-lbl">Formation</div></div>' +
+        '</div>' +
+        '<div class="pitch-wrapper">' +
+            '<div class="pitch-lines"></div>' +
+            pitchRow(starters.FWD || [], false) +
+            pitchRow(starters.MID || [], false) +
+            pitchRow(starters.DEF || [], false) +
+            pitchRow(starters.GKP || [], false) +
+            '<div class="bench-label">Bench</div>' +
+            pitchRow(bench, true) +
+        '</div>';
+}
+
+function closeModal(e) {
+    if (e.target.id === 'playerModal') {
+        document.getElementById('playerModal').style.display = 'none';
+    }
+}
+
+async function showPlayerModal(id) {
+    document.getElementById('playerModal').style.display = 'block';
+    document.getElementById('modalContent').innerHTML =
+        '<div class="loading-state"><div class="spinner"></div>Loading player...</div>';
+
+    const res = await fetch('/player/' + id);
+    const p = await res.json();
+    const fix = p.next_fixture || {};
+    const fdr = fdrInfo(fix.difficulty);
+    const posColors = {GKP:'#f59e0b',DEF:'#10b981',MID:'#3b82f6',FWD:'#ef4444'};
+    const posColor = posColors[p.position] || '#64748b';
+
+    const photoSection = p.photo_url ?
+        '<img src="' + p.photo_url + '" alt="' + p.name + '" ' +
+        'style="width:100px;height:125px;object-fit:cover;border-radius:12px;border:2px solid ' + posColor + ';" ' +
+        'onerror="this.outerHTML=\'<div style=&quot;width:100px;height:125px;background:var(--surface2);border-radius:12px;border:2px solid ' + posColor + ';display:flex;align-items:center;justify-content:center;font-size:36px;&quot;>' + posEmoji(p.position) + '</div>\'">' :
+        '<div style="width:100px;height:125px;background:var(--surface2);border-radius:12px;border:2px solid ' + posColor + ';display:flex;align-items:center;justify-content:center;font-size:36px;">' + posEmoji(p.position) + '</div>';
+
+    const statsData = [
+        ['Form', p.form, true],
+        ['Total Pts', p.total_points, false],
+        ['Pts/Game', p.points_per_game, false],
+        ['xP Next', p.ep_next, true],
+        ['Goals', p.goals, false],
+        ['Assists', p.assists, false],
+        ['xG', p.expected_goals, false],
+        ['xA', p.expected_assists, false],
+        ['ICT Index', p.ict_index, false],
+        ['Clean Sheets', p.clean_sheets, false],
+        ['Bonus Pts', p.bonus, false],
+        ['Ownership', p.selected_by + '%', false],
+    ];
+
+    const statsHTML = statsData.map(function(item) {
+        return '<div style="background:var(--bg);padding:10px;border-radius:8px;text-align:center;">' +
+            '<div style="font-family:\'JetBrains Mono\',monospace;font-size:16px;font-weight:700;color:' + (item[2] ? 'var(--green)' : 'var(--text)') + ';">' + item[1] + '</div>' +
+            '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:3px;">' + item[0] + '</div>' +
+        '</div>';
+    }).join('');
+
+    const fixtureHTML = fix.opponent ?
+        '<div style="padding:12px 16px;background:var(--bg);border-radius:10px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;">' +
+            '<div>' +
+                '<div style="font-size:11px;color:var(--muted);margin-bottom:2px;">GW' + fix.gameweek + ' Fixture</div>' +
+                '<div style="font-size:15px;font-weight:700;">' + fix.opponent + ' <span style="color:var(--muted);font-weight:400;">(' + (fix.is_home ? 'Home' : 'Away') + ')</span></div>' +
+                '<div style="font-size:12px;color:var(--muted);">' + fix.kickoff + '</div>' +
+            '</div>' +
+            '<div style="text-align:right;">' +
+                '<div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Difficulty</div>' +
+                '<span style="font-size:13px;font-weight:700;color:' + fdr.color + ';background:' + fdr.color + '22;padding:4px 12px;border-radius:20px;">' + fdr.label + '</span>' +
+            '</div>' +
+        '</div>' : '';
+
+    document.getElementById('modalContent').innerHTML =
+        '<div style="display:flex;gap:20px;align-items:flex-start;margin-bottom:24px;">' +
+            '<div style="flex-shrink:0;">' + photoSection + '</div>' +
+            '<div style="flex:1;">' +
+                '<div style="font-size:22px;font-weight:800;margin-bottom:4px;">' + p.full_name + '</div>' +
+                '<div style="color:var(--muted);font-size:14px;margin-bottom:8px;">' + p.team + '</div>' +
+                '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+                    '<span style="background:' + posColor + '22;color:' + posColor + ';padding:4px 10px;border-radius:6px;font-size:12px;font-weight:700;">' + p.position + '</span>' +
+                    '<span style="background:var(--green-dim);color:var(--green);padding:4px 10px;border-radius:6px;font-size:12px;font-weight:700;">£' + p.price + 'm</span>' +
+                    statusChip(p.status, p.status_text) +
+                '</div>' +
+                (p.news ? '<div style="margin-top:10px;padding:8px 12px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;font-size:12px;color:#f59e0b;">⚠️ ' + p.news + '</div>' : '') +
+            '</div>' +
+        '</div>' +
+        fixtureHTML +
+        '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:20px;">' + statsHTML + '</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+            '<div style="padding:10px 14px;background:var(--bg);border-radius:8px;">' +
+                '<div style="font-size:10px;color:var(--muted);margin-bottom:4px;">TRANSFERS IN THIS GW</div>' +
+                '<div style="font-size:15px;font-weight:700;color:#10b981;">+' + (p.transfers_in || 0).toLocaleString() + '</div>' +
+            '</div>' +
+            '<div style="padding:10px 14px;background:var(--bg);border-radius:8px;">' +
+                '<div style="font-size:10px;color:var(--muted);margin-bottom:4px;">TRANSFERS OUT THIS GW</div>' +
+                '<div style="font-size:15px;font-weight:700;color:var(--red);">-' + (p.transfers_out || 0).toLocaleString() + '</div>' +
+            '</div>' +
+        '</div>';
+}
+</script>
+</body>
+</html>
