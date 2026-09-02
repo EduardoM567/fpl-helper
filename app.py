@@ -1,6 +1,6 @@
 # FPL Helper - Flask Web App
 # Owner: Eduardo Maticorena
-
+import os
 from flask import Flask, render_template, request, jsonify
 from fpl_api import get_all_players, search_player, get_player_status, get_player_photo_url
 from team_builder import build_team, get_captain_suggestion
@@ -121,6 +121,7 @@ def transfer_suggestions():
         'transfers_in': transfers_in,
         'differentials': differentials
     })
-    
+
 if __name__ == '__main__':
-    app.run(debug=True, port=8080)
+    port = int(os.environ.get('PORT', 8080))
+    app.run(debug=False, host='0.0.0.0', port=port)
