@@ -9,25 +9,23 @@ import unicodedata
 from datetime import datetime, timedelta
 
 FPL_BASE_URL = 'https://fantasy.premierleague.com/api'
-CACHE_FILE = 'data/fpl_cache.json'
-CACHE_DURATION_HOURS = 1
+_cache = {}
+_cache_time = {}
 
 def get_bootstrap_data():
-    if os.path.exists(CACHE_FILE):
-        with open(CACHE_FILE, 'r') as f:
-            cache = json.load(f)
-        cache_time = datetime.fromisoformat(cache['cached_at'])
-        if datetime.now() - cache_time < timedelta(hours=CACHE_DURATION_HOURS):
-            return cache['data']
+    import time
+    now = time.time()
+
+    if 'bootstrap' in _cache and now - _cache_time.get('bootstrap', 0) < 3600:
+        return _cache['bootstrap']
 
     print("Fetching fresh FPL data...")
     response = requests.get(f'{FPL_BASE_URL}/bootstrap-static/')
     response.raise_for_status()
     data = response.json()
 
-    os.makedirs('data', exist_ok=True)
-    with open(CACHE_FILE, 'w') as f:
-        json.dump({'cached_at': datetime.now().isoformat(), 'data': data}, f)
+    _cache['bootstrap'] = data
+    _cache_time['bootstrap'] = now
 
     return data
 
