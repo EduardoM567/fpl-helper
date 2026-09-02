@@ -349,9 +349,12 @@
         <div class="logo-text">FPL<span>Helper</span></div>
     </div>
     <div class="header-right">
-        <div class="live-dot">Live Data</div>
-        <div class="season-pill">2025/26</div>
+    <div class="live-dot">Live Data</div>
+    <div id="deadlineCountdown" style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);color:#f59e0b;padding:5px 14px;border-radius:20px;font-size:12px;font-weight:700;letter-spacing:0.5px;">
+        Loading deadline...
     </div>
+    <div class="season-pill">2025/26</div>
+</div>
 </header>
 
 <div class="layout">
@@ -366,6 +369,11 @@
         <div class="nav-label">Build</div>
         <button class="nav-item" onclick="showSection('builder', this)">
             <span class="icon">🏗️</span> Team Builder
+        </button>
+        
+        <div class="nav-label">Market</div>
+        <button class="nav-item" onclick="showSection('transfers', this)">
+            <span class="icon">🔄</span> Transfer Tips
         </button>
     </nav>
 
@@ -455,7 +463,18 @@
                 </div>
             </div>
             <button class="btn btn-lg" onclick="buildTeam()">⚡ Build My Squad</button>
-            <div id="teamResult"></div>
+                       <div id="teamResult"></div>
+        </div>
+
+        <!-- Transfer Tips -->
+        <div id="transfers" class="section">
+            <div class="page-header">
+                <div class="page-title">Transfer <span>Tips</span></div>
+                <div class="page-subtitle">Top transfers in and hidden differentials this gameweek</div>
+            </div>
+            <div id="transferResults">
+                <div class="loading-state"><div class="spinner"></div>Loading transfer tips…</div>
+            </div>
         </div>
 
     </main>
@@ -484,6 +503,7 @@ function showSection(id, el) {
     document.getElementById(id).classList.add('active');
     el.classList.add('active');
     if (id === 'top') loadTopPlayers();
+    if (id === 'transfers') loadTransfers();
 }
 
 function selectStrat(s, el) {
@@ -584,7 +604,7 @@ function pitchPlayerHTML(p, isBench) {
     const isC = p._captain;
     const isVC = p._vc;
     const photoHTML = p.photo_url ?
-        '<img src="' + p.photo_url + '" alt="' + p.name + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.style.display=\'none\'">' :
+        '<img src="' + p.photo_url + '" alt="' + p.name + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.src=\'/static/placeholder.svg\'">' :
         posEmoji(p.position);
 
     return '<div class="pitch-player" onclick="showPlayerModal(' + p.id + ')">' +
@@ -633,6 +653,10 @@ async function buildTeam() {
             '<div class="summary-card"><div class="summary-val">£' + r.remaining_budget + 'm</div><div class="summary-lbl">In Bank</div></div>' +
             '<div class="summary-card"><div class="summary-val">' + totalXP + '</div><div class="summary-lbl">Total xP Next GW</div></div>' +
             '<div class="summary-card"><div class="summary-val">' + formation + '</div><div class="summary-lbl">Formation</div></div>' +
+                '</div>' +
+        '<div style="padding:14px 16px;background:linear-gradient(135deg,rgba(0,255,135,0.05),rgba(59,130,246,0.05));border:1px solid rgba(0,255,135,0.2);border-radius:10px;margin-bottom:20px;">' +
+            '<div style="font-size:10px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">⚡ AI Team Analysis</div>' +
+            '<div style="font-size:13px;line-height:1.6;color:var(--text);">' + (r.ai_summary || '') + '</div>' +
         '</div>' +
         '<div class="pitch-wrapper">' +
             '<div class="pitch-lines"></div>' +
@@ -666,7 +690,7 @@ async function showPlayerModal(id) {
     const photoSection = p.photo_url ?
         '<img src="' + p.photo_url + '" alt="' + p.name + '" ' +
         'style="width:100px;height:125px;object-fit:cover;border-radius:12px;border:2px solid ' + posColor + ';" ' +
-        'onerror="this.outerHTML=\'<div style=&quot;width:100px;height:125px;background:var(--surface2);border-radius:12px;border:2px solid ' + posColor + ';display:flex;align-items:center;justify-content:center;font-size:36px;&quot;>' + posEmoji(p.position) + '</div>\'">' :
+        '<img src="' + p.photo_url + '" alt="' + p.name + '" style="width:100px;height:125px;object-fit:cover;border-radius:12px;border:2px solid ' + posColor + ';" onerror="this.src=\'/static/placeholder.svg\'">' :
         '<div style="width:100px;height:125px;background:var(--surface2);border-radius:12px;border:2px solid ' + posColor + ';display:flex;align-items:center;justify-content:center;font-size:36px;">' + posEmoji(p.position) + '</div>';
 
     const statsData = [
@@ -718,6 +742,10 @@ async function showPlayerModal(id) {
                 (p.news ? '<div style="margin-top:10px;padding:8px 12px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;font-size:12px;color:#f59e0b;">⚠️ ' + p.news + '</div>' : '') +
             '</div>' +
         '</div>' +
+               '<div style="padding:14px 16px;background:linear-gradient(135deg,rgba(0,255,135,0.05),rgba(59,130,246,0.05));border:1px solid rgba(0,255,135,0.2);border-radius:10px;margin-bottom:20px;">' +
+            '<div style="font-size:10px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">⚡ AI Analysis</div>' +
+            '<div style="font-size:13px;line-height:1.6;color:var(--text);">' + (p.ai_summary || 'No analysis available') + '</div>' +
+        '</div>' +
         fixtureHTML +
         '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:20px;">' + statsHTML + '</div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
@@ -731,6 +759,71 @@ async function showPlayerModal(id) {
             '</div>' +
         '</div>';
 }
+
+async function loadDeadline() {
+    try {
+        const res = await fetch('/deadline');
+        const data = await res.json();
+        if (data.error) return;
+
+        const deadline = new Date(data.deadline);
+        const el = document.getElementById('deadlineCountdown');
+
+        function updateCountdown() {
+            const now = new Date();
+            const diff = deadline - now;
+
+            if (diff <= 0) {
+                el.textContent = 'GW' + data.gameweek + ' deadline passed';
+                return;
+            }
+
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const secs = Math.floor((diff % (1000 * 60)) / 1000);
+
+            if (days > 0) {
+                el.textContent = 'GW' + data.gameweek + ' deadline: ' + days + 'd ' + hours + 'h ' + mins + 'm';
+            } else if (hours > 0) {
+                el.textContent = 'GW' + data.gameweek + ' deadline: ' + hours + 'h ' + mins + 'm ' + secs + 's';
+                el.style.borderColor = 'rgba(239,68,68,0.5)';
+                el.style.color = '#ef4444';
+                el.style.background = 'rgba(239,68,68,0.1)';
+            } else {
+                el.textContent = 'GW' + data.gameweek + ' deadline: ' + mins + 'm ' + secs + 's';
+                el.style.borderColor = 'rgba(239,68,68,0.5)';
+                el.style.color = '#ef4444';
+                el.style.background = 'rgba(239,68,68,0.1)';
+            }
+        }
+
+        updateCountdown();
+        setInterval(updateCountdown, 1000);
+    } catch(e) {
+        console.error('Deadline fetch failed:', e);
+    }
+}
+
+loadDeadline();
+
+async function loadTransfers() {
+    const el = document.getElementById('transferResults');
+    el.innerHTML = '<div class="loading-state"><div class="spinner"></div>Loading transfer tips…</div>';
+    
+    const res = await fetch('/transfers');
+    const data = await res.json();
+
+    let html = '<h2 style="font-family:\'Bebas Neue\',sans-serif;font-size:24px;letter-spacing:1px;margin-bottom:16px;">🔥 Most Transferred In</h2>';
+    html += '<div class="player-grid">' + data.transfers_in.map(playerCard).join('') + '</div>';
+    
+    html += '<h2 style="font-family:\'Bebas Neue\',sans-serif;font-size:24px;letter-spacing:1px;margin:28px 0 16px;">💎 Differential Picks</h2>';
+    html += '<p style="color:var(--muted);font-size:13px;margin-bottom:16px;">High form players owned by less than 10% of managers</p>';
+    html += '<div class="player-grid">' + data.differentials.map(playerCard).join('') + '</div>';
+
+    el.innerHTML = html;
+}
+
 </script>
 </body>
 </html>

@@ -148,7 +148,7 @@ def get_player_photo_url(code):
     if not code:
         return None
     return f"https://resources.premierleague.com/premierleague/photos/players/110x140/p{code}.png"
-
+    
 if __name__ == '__main__':
     players = get_all_players()
     print(f"Total available players: {len(players)}")

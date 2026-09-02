@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 110 140" fill="none">
+  <rect width="110" height="140" fill="#1c2637"/>
+  <!-- Head -->
+  <circle cx="55" cy="38" r="18" fill="#2d4a6b"/>
+  <!-- Body/Jersey -->
+  <path d="M25 140 Q25 85 55 85 Q85 85 85 140Z" fill="#2d4a6b"/>
+  <!-- Shoulders -->
+  <path d="M20 95 Q20 75 55 75 Q90 75 90 95" fill="#2d4a6b"/>
+  <!-- Jersey number area -->
+  <rect x="42" y="95" width="26" height="20" rx="3" fill="#1c2637" opacity="0.4"/>
+</svg>

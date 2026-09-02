@@ -24,17 +24,20 @@ def search():
 
 @app.route('/player/<int:player_id>')
 def player_detail(player_id):
+    from ai_summary import get_player_summary
     players = get_all_players()
     player = next((p for p in players if p['id'] == player_id), None)
     if not player:
         return jsonify({'error': 'Player not found'}), 404
     player['status_text'] = get_player_status(player['status'])
     player['photo_url'] = get_player_photo_url(player.get('code'))
+    player['ai_summary'] = get_player_summary(player)
     return jsonify(player)
 
 @app.route('/build-team', methods=['POST'])
 def build_team_route():
     from team_builder import get_best_formation
+    from ai_summary import get_team_summary
     data = request.get_json()
     strategy = data.get('strategy', 'balanced')
     budget = float(data.get('budget', 100.0))
@@ -54,6 +57,7 @@ def build_team_route():
     result['vice_captain'] = vice
     result['starters'] = starters
     result['bench'] = bench
+    result['ai_summary'] = get_team_summary(result['squad'], strategy, captain, vice)
 
     return jsonify(result)
 
@@ -81,5 +85,42 @@ def top_players():
 
     return jsonify(players[:limit])
 
+@app.route('/deadline')
+def get_deadline():
+    from fpl_api import get_bootstrap_data
+    data = get_bootstrap_data()
+    events = data['events']
+    next_gw = next((e for e in events if e['is_next']), None)
+    current_gw = next((e for e in events if e['is_current']), None)
+    target = next_gw or current_gw
+    if not target:
+        return jsonify({'error': 'No deadline found'})
+    return jsonify({
+        'gameweek': target['id'],
+        'name': target['name'],
+        'deadline': target['deadline_time']
+    })
+
+@app.route('/transfers')
+def transfer_suggestions():
+    from ai_summary import get_player_summary
+    players = get_all_players()
+    
+    # Top transfers in
+    transfers_in = sorted(players, key=lambda x: x['transfers_in'], reverse=True)[:5]
+    # Top differentials - high form low ownership
+    differentials = [p for p in players if p['selected_by'] < 10 and p['form'] > 4.0]
+    differentials = sorted(differentials, key=lambda x: x['form'], reverse=True)[:5]
+
+    for p in transfers_in + differentials:
+        p['status_text'] = get_player_status(p['status'])
+        p['photo_url'] = get_player_photo_url(p.get('code'))
+        p['ai_summary'] = get_player_summary(p)
+
+    return jsonify({
+        'transfers_in': transfers_in,
+        'differentials': differentials
+    })
+    
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=8080)
