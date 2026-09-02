@@ -38,11 +38,13 @@
             background: rgba(8,12,20,0.85);
             backdrop-filter: blur(16px);
             border-bottom: 1px solid var(--border);
-            padding: 0 32px;
-            height: 64px;
+            padding: 0 16px;
+            min-height: 64px;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
         }
         .logo { display: flex; align-items: center; gap: 10px; }
         .logo-icon {
@@ -333,12 +335,51 @@
             .sidebar { display:none; }
             .strategy-grid { grid-template-columns:repeat(3,1fr); }
         }
-        @media (max-width:600px) {
-            .main { padding:20px 16px; }
-            .squad-summary { grid-template-columns:repeat(2,1fr); }
-            .strategy-grid { grid-template-columns:repeat(2,1fr); }
-            .card-stats { grid-template-columns:repeat(2,1fr); }
+       @media (max-width:600px) {
+           .main { padding:20px 16px; }
+           .squad-summary { grid-template-columns:repeat(2,1fr); }
+           .strategy-grid { grid-template-columns:repeat(2,1fr); }
+           .card-stats { grid-template-columns:repeat(2,1fr); }
+           .header-right { gap: 8px; }
+           .season-pill { display: none; }
+           #deadlineCountdown { font-size: 11px; padding: 4px 10px; }
+           .logo-text { font-size: 20px; }
+           .live-dot { display: none; }
         }
+
+        .mobile-nav {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: var(--surface);
+        border-top: 1px solid var(--border);
+        display: flex;
+        z-index: 100;
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+    .mobile-nav-item {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 10px 0;
+        background: none;
+        border: none;
+        color: var(--muted);
+        font-size: 11px;
+        font-family: 'Inter', sans-serif;
+        cursor: pointer;
+        gap: 4px;
+        transition: color 0.15s;
+    }
+    .mobile-nav-item span:first-child { font-size: 20px; }
+    .mobile-nav-item.active { color: var(--green); }
+    .mobile-nav-item:hover { color: var(--text); }
+    @media (max-width: 900px) {
+        #mobileNav { display: flex !important; }
+        .main { padding-bottom: 80px; }
+    }
     </style>
 </head>
 <body>
@@ -500,6 +541,7 @@ function posEmoji(pos) {
 function showSection(id, el) {
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelectorAll('.mobile-nav-item').forEach(n => n.classList.remove('active'));
     document.getElementById(id).classList.add('active');
     el.classList.add('active');
     if (id === 'top') loadTopPlayers();
@@ -825,5 +867,24 @@ async function loadTransfers() {
 }
 
 </script>
+<!-- Mobile Bottom Nav -->
+<nav style="display:none;" id="mobileNav" class="mobile-nav">
+    <button onclick="showSection('search', this)" class="mobile-nav-item active">
+        <span>🔍</span>
+        <span>Search</span>
+    </button>
+    <button onclick="showSection('top', this)" class="mobile-nav-item">
+        <span>📊</span>
+        <span>Top</span>
+    </button>
+    <button onclick="showSection('builder', this)" class="mobile-nav-item">
+        <span>🏗️</span>
+        <span>Builder</span>
+    </button>
+    <button onclick="showSection('transfers', this)" class="mobile-nav-item">
+        <span>🔄</span>
+        <span>Transfers</span>
+    </button>
+</nav>
 </body>
 </html>
