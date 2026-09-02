@@ -5,6 +5,7 @@
 import requests
 import json
 import os
+import unicodedata
 from datetime import datetime, timedelta
 
 FPL_BASE_URL = 'https://fantasy.premierleague.com/api'
@@ -126,11 +127,16 @@ def get_all_players():
 
     return enriched
 
+def normalize(text):
+    """Remove accents for search matching"""
+    return unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii').lower()
+
 def search_player(name):
     players = get_all_players()
-    name_lower = name.lower()
-    return [p for p in players if name_lower in p['name'].lower()
-            or name_lower in p['full_name'].lower()]
+    name_normalized = normalize(name)
+    return [p for p in players if
+            name_normalized in normalize(p['name']) or
+            name_normalized in normalize(p['full_name'])]
 
 def get_player_status(status_code):
     statuses = {
@@ -148,7 +154,7 @@ def get_player_photo_url(code):
     if not code:
         return None
     return f"https://resources.premierleague.com/premierleague/photos/players/110x140/p{code}.png"
-    
+
 if __name__ == '__main__':
     players = get_all_players()
     print(f"Total available players: {len(players)}")
