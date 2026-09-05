@@ -122,6 +122,19 @@ def transfer_suggestions():
         'differentials': differentials
     })
 
+@app.route('/my-team/<int:team_id>')
+def my_team(team_id):
+    from team_lookup import get_user_team, analyze_team
+    
+    team_data = get_user_team(team_id)
+    if not team_data:
+        return jsonify({'error': 'Team not found. Check your Team ID.'}), 404
+    
+    suggestions = analyze_team(team_data)
+    team_data['suggestions'] = suggestions
+    
+    return jsonify(team_data)
+    
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
     app.run(debug=False, host='0.0.0.0', port=port)

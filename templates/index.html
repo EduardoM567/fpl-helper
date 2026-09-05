@@ -412,9 +412,14 @@
             <span class="icon">🏗️</span> Team Builder
         </button>
         
-        <div class="nav-label">Market</div>
+               <div class="nav-label">Market</div>
         <button class="nav-item" onclick="showSection('transfers', this)">
             <span class="icon">🔄</span> Transfer Tips
+        </button>
+
+        <div class="nav-label">Personal</div>
+        <button class="nav-item" onclick="showSection('myteam', this)">
+            <span class="icon">👤</span> My Team
         </button>
     </nav>
 
@@ -513,8 +518,29 @@
                 <div class="page-title">Transfer <span>Tips</span></div>
                 <div class="page-subtitle">Top transfers in and hidden differentials this gameweek</div>
             </div>
-            <div id="transferResults">
+                       <div id="transferResults">
                 <div class="loading-state"><div class="spinner"></div>Loading transfer tips…</div>
+            </div>
+        </div>
+
+        <!-- My Team -->
+        <div id="myteam" class="section">
+            <div class="page-header">
+                <div class="page-title">My <span>Team</span></div>
+                <div class="page-subtitle">Enter your FPL Team ID to see personalized analysis</div>
+            </div>
+            <div class="search-bar" style="max-width:400px;">
+                <span class="search-icon">👤</span>
+                <input type="text" id="teamIdInput" placeholder="Enter your Team ID (e.g. 1234567)" 
+                    onkeyup="if(event.key==='Enter') loadMyTeam()">
+            </div>
+            <button class="btn" onclick="loadMyTeam()" style="margin-bottom:24px;">Load My Team</button>
+            <div id="myTeamResults">
+                <div class="empty-state">
+                    <div class="empty-icon">👤</div>
+                    <div class="empty-title">Enter your Team ID</div>
+                    <div class="empty-sub">Find it in the URL when viewing your team on the FPL website (fantasy.premierleague.com/entry/YOUR_ID/event/X)</div>
+                </div>
             </div>
         </div>
 
@@ -869,6 +895,60 @@ async function loadTransfers() {
     html += '<div class="player-grid">' + data.differentials.map(playerCard).join('') + '</div>';
 
     el.innerHTML = html;
+}
+
+async function loadMyTeam() {
+    const teamId = document.getElementById('teamIdInput').value.trim();
+    if (!teamId) return;
+
+    const el = document.getElementById('myTeamResults');
+    el.innerHTML = '<div class="loading-state"><div class="spinner"></div>Loading your team…</div>';
+
+    try {
+        const res = await fetch('/my-team/' + teamId);
+        const data = await res.json();
+
+        if (data.error) {
+            el.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">' + data.error + '</div></div>';
+            return;
+        }
+
+        const suggestionColors = {
+            urgent: {bg: 'rgba(239,68,68,0.1)', border: 'rgba(239,68,68,0.3)', color: '#ef4444', icon: '🚨'},
+            warning: {bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.3)', color: '#f59e0b', icon: '⚠️'},
+            info: {bg: 'rgba(59,130,246,0.1)', border: 'rgba(59,130,246,0.3)', color: '#3b82f6', icon: 'ℹ️'},
+            tip: {bg: 'rgba(0,255,135,0.1)', border: 'rgba(0,255,135,0.3)', color: '#00ff87', icon: '💡'}
+        };
+
+        let html = '<div class="squad-summary">' +
+            '<div class="summary-card"><div class="summary-val">' + data.total_points + '</div><div class="summary-lbl">Total Points</div></div>' +
+            '<div class="summary-card"><div class="summary-val">' + data.gameweek_points + '</div><div class="summary-lbl">GW' + data.gameweek + ' Points</div></div>' +
+            '<div class="summary-card"><div class="summary-val">£' + data.team_value + 'm</div><div class="summary-lbl">Team Value</div></div>' +
+            '<div class="summary-card"><div class="summary-val">£' + data.bank + 'm</div><div class="summary-lbl">In Bank</div></div>' +
+        '</div>';
+
+        if (data.suggestions && data.suggestions.length > 0) {
+            html += '<h3 style="font-family:\'Bebas Neue\',sans-serif;font-size:22px;letter-spacing:1px;margin-bottom:12px;">⚡ Suggestions</h3>';
+            data.suggestions.forEach(s => {
+                const style = suggestionColors[s.type] || suggestionColors.info;
+                html += '<div style="background:' + style.bg + ';border:1px solid ' + style.border + ';border-radius:10px;padding:12px 16px;margin-bottom:8px;font-size:13px;color:var(--text);">' +
+                    style.icon + ' ' + s.message +
+                '</div>';
+            });
+        }
+
+        html += '<h3 style="font-family:\'Bebas Neue\',sans-serif;font-size:22px;letter-spacing:1px;margin:24px 0 12px;">Starting XI</h3>';
+        const starters = data.squad.filter(p => p.is_starting);
+        html += '<div class="player-grid">' + starters.map(playerCard).join('') + '</div>';
+
+        html += '<h3 style="font-family:\'Bebas Neue\',sans-serif;font-size:22px;letter-spacing:1px;margin:24px 0 12px;">Bench</h3>';
+        const bench = data.squad.filter(p => !p.is_starting);
+        html += '<div class="player-grid">' + bench.map(playerCard).join('') + '</div>';
+
+        el.innerHTML = html;
+    } catch (e) {
+        el.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">Something went wrong</div><div class="empty-sub">Check your Team ID and try again</div></div>';
+    }
 }
 
 </script>
