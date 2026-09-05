@@ -572,6 +572,13 @@ function showSection(id, el) {
     el.classList.add('active');
     if (id === 'top') loadTopPlayers();
     if (id === 'transfers') loadTransfers();
+    if (id === 'myteam') {
+        const savedId = localStorage.getItem('fpl_team_id');
+        if (savedId && !document.getElementById('teamIdInput').value) {
+            document.getElementById('teamIdInput').value = savedId;
+            loadMyTeam();
+        }
+    }
 }
 
 function selectStrat(s, el) {
@@ -900,6 +907,8 @@ async function loadTransfers() {
 async function loadMyTeam() {
     const teamId = document.getElementById('teamIdInput').value.trim();
     if (!teamId) return;
+    
+    localStorage.setItem('fpl_team_id', teamId);
 
     const el = document.getElementById('myTeamResults');
     el.innerHTML = '<div class="loading-state"><div class="spinner"></div>Loading your team…</div>';
