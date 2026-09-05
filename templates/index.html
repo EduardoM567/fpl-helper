@@ -573,10 +573,15 @@ function playerCard(p) {
     const fdr = fdrInfo(fix.difficulty);
     const homeAway = fix.opponent ? (fix.is_home ? 'H' : 'A') : '';
 
+        const photoHTML = p.photo_url ?
+        '<img src="' + p.photo_url + '" alt="' + p.name + '" style="width:48px;height:60px;object-fit:cover;border-radius:8px;margin-right:12px;flex-shrink:0;" onerror="this.src=\'/static/placeholder.svg\'">' :
+        '<img src="/static/placeholder.svg" style="width:48px;height:60px;object-fit:cover;border-radius:8px;margin-right:12px;flex-shrink:0;">';
+
     return '<div class="player-card ' + p.position + '" onclick="showPlayerModal(' + p.id + ')">' +
         '<div class="card-top">' +
             '<div class="card-identity">' +
                 '<div class="card-pos-bar"></div>' +
+                photoHTML +
                 '<div class="card-info">' +
                     '<div class="card-name">' + p.name + '<span class="pos-tag">' + p.position + '</span></div>' +
                     '<div class="card-sub">' + p.team + '</div>' +

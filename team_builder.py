@@ -74,6 +74,10 @@ def score_player(player, strategy='balanced'):
     if fixture.get('is_home'):
         score *= 1.05
 
+    # Boost genuinely elite players (high ownership + high total points = proven quality)
+    if player.get('total_points', 0) >= 12 and player.get('selected_by', 0) > 20:
+        score *= 1.2
+
     return round(score, 2)
 
 
@@ -85,78 +89,96 @@ def build_team(strategy='balanced', budget=100.0):
 
     players.sort(key=lambda x: x['score'], reverse=True)
 
-    # Budget allocation per position based on strategy
-    budget_split = {
-        'balanced': {'GKP': 10.0, 'DEF': 27.0, 'MID': 38.0, 'FWD': 25.0},
-        'attack':   {'GKP': 9.0,  'DEF': 25.0, 'MID': 34.0, 'FWD': 32.0},
-        'defense':  {'GKP': 11.0, 'DEF': 33.0, 'MID': 30.0, 'FWD': 26.0},
-        'budget':   {'GKP': 9.0,  'DEF': 24.0, 'MID': 35.0, 'FWD': 22.0},
-        'form':     {'GKP': 9.0,  'DEF': 25.0, 'MID': 38.0, 'FWD': 25.0},
-    }
-    alloc = budget_split.get(strategy, budget_split['balanced'])
+    # Force include top premium forward for attack strategy
+    if strategy == 'attack':
+        premium_fwd = [p for p in players if p['position'] == 'FWD' and p['price'] >= 12.0]
+        premium_fwd.sort(key=lambda x: x['score'], reverse=True)
+        if premium_fwd:
+            top_fwd = premium_fwd[0]
+            players.remove(top_fwd)
+            players.insert(0, top_fwd)
 
     squad = []
     team_counts = {}
     position_counts = {'GKP': 0, 'DEF': 0, 'MID': 0, 'FWD': 0}
-    pos_budget = {pos: alloc[pos] for pos in alloc}
-    pos_spent = {'GKP': 0.0, 'DEF': 0.0, 'MID': 0.0, 'FWD': 0.0}
+    spent = 0.0
 
-    # First pass — pick best players within position budgets
-    for player in players:
-        if len(squad) >= SQUAD_SIZE:
-            break
+    def can_add(player):
         pos = player['position']
         team = player['team']
-        price = player['price']
-
         if position_counts[pos] >= POSITION_LIMITS[pos]['max']:
-            continue
+            return False
         if team_counts.get(team, 0) >= MAX_PER_TEAM:
-            continue
-        if pos_spent[pos] + price > pos_budget[pos] + 0.05:
-            continue
+            return False
+        return True
 
+    def add_player(player):
+        nonlocal spent
+        pos = player['position']
+        team = player['team']
         squad.append(player)
         position_counts[pos] += 1
         team_counts[team] = team_counts.get(team, 0) + 1
-        pos_spent[pos] += price
+        spent += player['price']
 
-    # Calculate remaining budget after first pass
-    total_spent = sum(pos_spent.values())
-    remaining = budget - total_spent
-
-    # Second pass — fill missing positions using remaining budget
-    for player in players:
+    # STEP 1: Guarantee a valid 15-player squad using cheapest eligible players first
+    # This ensures we always hit exactly 2 GKP, 5 DEF, 5 MID, 3 FWD
+    cheapest_first = sorted(players, key=lambda x: x['price'])
+    for player in cheapest_first:
         if len(squad) >= SQUAD_SIZE:
             break
-        if player in squad:
-            continue
-        pos = player['position']
-        team = player['team']
-        price = player['price']
+        if can_add(player):
+            add_player(player)
 
-        if position_counts[pos] >= POSITION_LIMITS[pos]['max']:
+    # STEP 2: Upgrade — try to swap in higher-scoring players within same position
+    # as long as budget allows, going from best score down
+    remaining = budget - spent
+    best_first = sorted(players, key=lambda x: x['score'], reverse=True)
+
+    for candidate in best_first:
+        if candidate in squad:
             continue
-        if team_counts.get(team, 0) >= MAX_PER_TEAM:
+        pos = candidate['position']
+
+        # Find the weakest (lowest score) player in squad at this position to replace
+        same_pos_in_squad = [p for p in squad if p['position'] == pos]
+        if not same_pos_in_squad:
             continue
-        if price > remaining + 0.05:
+        weakest = min(same_pos_in_squad, key=lambda x: x['score'])
+
+        if candidate['score'] <= weakest['score']:
             continue
 
-        squad.append(player)
-        position_counts[pos] += 1
-        team_counts[team] = team_counts.get(team, 0) + 1
-        remaining -= price
+        price_diff = candidate['price'] - weakest['price']
+        if price_diff > remaining + 0.05:
+            continue
 
-    total_cost = round(budget - remaining, 1)
+        # Check team limit allows the swap
+        cand_team = candidate['team']
+        current_team_count = team_counts.get(cand_team, 0)
+        if weakest['team'] == cand_team:
+            pass  # replacing within same team, count unaffected
+        elif current_team_count >= MAX_PER_TEAM:
+            continue
+
+        # Perform swap
+        squad.remove(weakest)
+        squad.append(candidate)
+        team_counts[weakest['team']] -= 1
+        team_counts[cand_team] = team_counts.get(cand_team, 0) + 1
+        remaining -= price_diff
+        spent += price_diff
+
+    total_cost = round(spent, 1)
+    remaining = round(budget - spent, 1)
 
     return {
         'squad': squad,
         'total_cost': total_cost,
-        'remaining_budget': round(remaining, 1),
+        'remaining_budget': remaining,
         'strategy': strategy,
         'position_counts': position_counts
     }
-
 
 def get_captain_suggestion(squad):
     outfield = [p for p in squad if p['position'] != 'GKP']
