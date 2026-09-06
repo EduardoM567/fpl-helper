@@ -535,6 +535,10 @@
                     onkeyup="if(event.key==='Enter') loadMyTeam()">
             </div>
             <button class="btn" onclick="loadMyTeam()" style="margin-bottom:24px;">Load My Team</button>
+            <div id="compareSection" style="display:none; margin-bottom:24px;">
+                <button class="btn btn-outline" onclick="loadComparison()">📊 Compare to Optimal Team</button>
+                <div id="comparisonResults" style="margin-top:16px;"></div>
+            </div>
             <div id="myTeamResults">
                 <div class="empty-state">
                     <div class="empty-icon">👤</div>
@@ -954,10 +958,44 @@ async function loadMyTeam() {
         const bench = data.squad.filter(p => !p.is_starting);
         html += '<div class="player-grid">' + bench.map(playerCard).join('') + '</div>';
 
-        el.innerHTML = html;
-    } catch (e) {
+       el.innerHTML = html;
+                document.getElementById('compareSection').style.display = 'block';
+            } catch (e) {
         el.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">Something went wrong</div><div class="empty-sub">Check your Team ID and try again</div></div>';
     }
+}
+
+async function loadComparison() {
+    const teamId = document.getElementById('teamIdInput').value.trim();
+    if (!teamId) return;
+
+    const el = document.getElementById('comparisonResults');
+    el.innerHTML = '<div class="loading-state"><div class="spinner"></div>Comparing…</div>';
+
+    const res = await fetch('/my-team/' + teamId + '/compare');
+    const data = await res.json();
+
+    let html = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
+            '<div>' +
+                '<div style="font-size:28px;font-weight:800;color:var(--green);">' + data.match_percentage + '%</div>' +
+                '<div style="font-size:12px;color:var(--muted);">Match with optimal team (' + data.overlap_count + '/' + data.total_optimal + ' players)</div>' +
+            '</div>' +
+        '</div>' +
+        '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px;">🔥 Players you should consider adding:</div>';
+
+    data.suggested_additions.forEach(p => {
+        html += '<div class="team-player" onclick="showPlayerModal(' + p.id + ')" style="cursor:pointer;">' +
+            '<div>' +
+                '<div class="team-player-name">' + p.name + ' <span class="pos-tag">' + p.position + '</span></div>' +
+                '<div class="team-player-meta">' + p.team + ' · Form: ' + p.form + '</div>' +
+            '</div>' +
+            '<div class="team-player-price">£' + p.price + 'm</div>' +
+        '</div>';
+    });
+
+    html += '</div>';
+    el.innerHTML = html;
 }
 
 </script>

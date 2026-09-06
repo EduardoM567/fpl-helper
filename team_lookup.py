@@ -98,6 +98,34 @@ def analyze_team(team_data):
     return suggestions
 
 
+
+def compare_to_optimal(team_data):
+    """Compare user's actual team to what the algorithm would build"""
+    from team_builder import build_team
+    
+    squad = team_data['squad']
+    total_value = sum(p['price'] for p in squad)
+    
+    # Build an optimal team with similar budget using balanced strategy
+    optimal = build_team('balanced', budget=total_value + team_data['bank'])
+    
+    user_ids = set(p['id'] for p in squad)
+    optimal_ids = set(p['id'] for p in optimal['squad'])
+    
+    overlap = user_ids & optimal_ids
+    missing_from_user = [p for p in optimal['squad'] if p['id'] not in user_ids]
+    
+    # Sort missing players by score to show best upgrades first
+    missing_from_user.sort(key=lambda x: x.get('score', 0), reverse=True)
+    
+    return {
+        'overlap_count': len(overlap),
+        'total_optimal': len(optimal['squad']),
+        'match_percentage': round(len(overlap) / len(optimal['squad']) * 100, 1),
+        'suggested_additions': missing_from_user[:5]
+    }
+
+
 if __name__ == '__main__':
     team = get_user_team(5292186)
     print(f"Total points: {team['total_points']}")

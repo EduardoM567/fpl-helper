@@ -134,6 +134,17 @@ def my_team(team_id):
     team_data['suggestions'] = suggestions
     
     return jsonify(team_data)
+
+@app.route('/my-team/<int:team_id>/compare')
+def compare_team(team_id):
+    from team_lookup import get_user_team, compare_to_optimal
+    
+    team_data = get_user_team(team_id)
+    if not team_data:
+        return jsonify({'error': 'Team not found'}), 404
+    
+    comparison = compare_to_optimal(team_data)
+    return jsonify(comparison)
     
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
