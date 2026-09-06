@@ -182,6 +182,17 @@ def find_replacement(player_id):
         'alternatives': candidates[:5]
     })
 
+@app.route('/my-team/<int:team_id>/optimize')
+def optimize_team(team_id):
+    from team_lookup import get_user_team, get_optimized_lineup
+    
+    team_data = get_user_team(team_id)
+    if not team_data:
+        return jsonify({'error': 'Team not found'}), 404
+    
+    optimized = get_optimized_lineup(team_data)
+    return jsonify(optimized)
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
     app.run(debug=False, host='0.0.0.0', port=port)

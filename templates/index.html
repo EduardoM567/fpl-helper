@@ -296,7 +296,9 @@
             font-size:18px; margin:0 auto 4px;
             border:2px solid rgba(255,255,255,0.2);
             position:relative; transition:transform 0.2s;
-            overflow:hidden;
+        }
+        .pitch-avatar img {
+            width:100%; height:100%; object-fit:cover; border-radius:50%;
         }
         .pitch-avatar img { width:100%; height:100%; object-fit:cover; }
         .pitch-avatar.GKP { background:rgba(245,158,11,0.3); border-color:var(--amber); }
@@ -304,14 +306,16 @@
         .pitch-avatar.MID { background:rgba(59,130,246,0.3); border-color:var(--blue); }
         .pitch-avatar.FWD { background:rgba(239,68,68,0.3); border-color:var(--red); }
         .pitch-c-badge {
-            position:absolute; top:-2px; right:-2px; width:16px; height:16px;
+            position:absolute; top:-6px; right:-6px; width:22px; height:22px;
             background:var(--amber); color:#080c14; border-radius:50%;
-            font-size:8px; font-weight:900; display:flex; align-items:center; justify-content:center;
+            font-size:11px; font-weight:900; display:flex; align-items:center; justify-content:center;
+            border:2px solid var(--bg); z-index:5;
         }
         .pitch-vc-badge {
-            position:absolute; top:-2px; right:-2px; width:16px; height:16px;
-            background:#6b7280; color:#fff; border-radius:50%;
-            font-size:8px; font-weight:900; display:flex; align-items:center; justify-content:center;
+            position:absolute; top:-6px; right:-6px; width:22px; height:22px;
+            background:#e5e7eb; color:#080c14; border-radius:50%;
+            font-size:11px; font-weight:900; display:flex; align-items:center; justify-content:center;
+            border:2px solid var(--bg); z-index:5;
         }
         .pitch-name {
             font-size:10px; font-weight:700; color:#fff;
@@ -579,8 +583,12 @@
             </div>
             <button class="btn" onclick="loadMyTeam()" style="margin-bottom:24px;">Load My Team</button>
             <div id="compareSection" style="display:none; margin-bottom:24px;">
-                <button class="btn btn-outline" onclick="loadComparison()">📊 Compare to Optimal Team</button>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <button class="btn btn-outline" onclick="loadComparison()">📊 Compare to Optimal Team</button>
+                    <button class="btn btn-outline" onclick="loadOptimizedLineup()">⚡ Optimize My Lineup</button>
+                </div>
                 <div id="comparisonResults" style="margin-top:16px;"></div>
+                <div id="optimizedResults" style="margin-top:16px;"></div>
             </div>
             <div id="myTeamResults">
                 <div class="empty-state">
@@ -777,6 +785,18 @@ async function buildTeam() {
 
     const starters = r.starters;
     const bench = r.bench || [];
+
+    // Mark captain/vc in starters structure (separate from r.squad)
+    ['GKP', 'DEF', 'MID', 'FWD'].forEach(pos => {
+        (starters[pos] || []).forEach(p => {
+            if (r.captain && p.id === r.captain.id) p._captain = true;
+            if (r.vice_captain && p.id === r.vice_captain.id) p._vc = true;
+        });
+    });
+    bench.forEach(p => {
+        if (r.captain && p.id === r.captain.id) p._captain = true;
+        if (r.vice_captain && p.id === r.vice_captain.id) p._vc = true;
+    });
     const totalXP = r.squad.reduce((a, p) => a + (p.ep_next || 0), 0).toFixed(1);
     const formation = starters.formation || '4-4-2';
 
@@ -1144,11 +1164,49 @@ async function loadComparison() {
             '<div class="team-player-price">£' + p.price + 'm</div>' +
         '</div>';
     });
-
     html += '</div>';
     el.innerHTML = html;
 }
 
+async function loadOptimizedLineup() {
+    const teamId = document.getElementById('teamIdInput').value.trim();
+    if (!teamId) return;
+
+    const el = document.getElementById('optimizedResults');
+    el.innerHTML = '<div class="loading-state"><div class="spinner"></div>Optimizing…</div>';
+
+    const res = await fetch('/my-team/' + teamId + '/optimize');
+    const data = await res.json();
+
+        ['GKP', 'DEF', 'MID', 'FWD'].forEach(pos => {
+        (data.starters[pos] || []).forEach(p => {
+            if (data.captain && p.id === data.captain.id) p._captain = true;
+            if (data.vice_captain && p.id === data.vice_captain.id) p._vc = true;
+        });
+    });
+    (data.bench || []).forEach(p => {
+        if (data.captain && p.id === data.captain.id) p._captain = true;
+        if (data.vice_captain && p.id === data.vice_captain.id) p._vc = true;
+    });
+
+    const changeMsg = data.changes_needed
+        ? '<div style="padding:10px 14px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;font-size:13px;color:#f59e0b;margin-bottom:14px;">⚡ This lineup is different from your current starting XI — consider making these changes before the deadline.</div>'
+        : '<div style="padding:10px 14px;background:rgba(0,255,135,0.1);border:1px solid rgba(0,255,135,0.3);border-radius:8px;font-size:13px;color:var(--green);margin-bottom:14px;">✅ Your current lineup is already optimal!</div>';
+
+    let html = changeMsg +
+        '<div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Best formation: <strong style="color:var(--text)">' + data.formation + '</strong></div>' +
+        '<div class="pitch-wrapper">' +
+            '<div class="pitch-lines"></div>' +
+            pitchRow(data.starters.FWD || [], false) +
+            pitchRow(data.starters.MID || [], false) +
+            pitchRow(data.starters.DEF || [], false) +
+            pitchRow(data.starters.GKP || [], false) +
+            '<div class="bench-label">Bench</div>' +
+            pitchRow(data.bench || [], true) +
+        '</div>';
+
+    el.innerHTML = html;
+}
 </script>
 <!-- Mobile Bottom Nav -->
 <nav style="display:none;" id="mobileNav" class="mobile-nav">
