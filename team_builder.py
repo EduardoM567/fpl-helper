@@ -76,7 +76,7 @@ def score_player(player, strategy='balanced'):
 
     # Boost genuinely elite players (high ownership + high total points = proven quality)
     if player.get('total_points', 0) >= 12 and player.get('selected_by', 0) > 20:
-        score *= 1.2
+        score *= 1.4
 
     return round(score, 2)
 
