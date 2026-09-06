@@ -875,7 +875,9 @@ async function showPlayerModal(id) {
                 (p.news ? '<div style="margin-top:10px;padding:8px 12px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;font-size:12px;color:#f59e0b;">⚠️ ' + p.news + '</div>' : '') +
             '</div>' +
         '</div>' +
-               '<div style="padding:14px 16px;background:linear-gradient(135deg,rgba(0,255,135,0.05),rgba(59,130,246,0.05));border:1px solid rgba(0,255,135,0.2);border-radius:10px;margin-bottom:20px;">' +
+        '<button class="btn btn-lg" onclick="findReplacement(' + p.id + ')" style="margin-bottom:16px;">🔄 Find Replacement</button>' +
+        '<div id="replacementResults" style="margin-bottom:20px;"></div>' +
+            '<div style="padding:14px 16px;background:linear-gradient(135deg,rgba(0,255,135,0.05),rgba(59,130,246,0.05));border:1px solid rgba(0,255,135,0.2);border-radius:10px;margin-bottom:20px;">' +
             '<div style="font-size:10px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">⚡ AI Analysis</div>' +
             '<div style="font-size:13px;line-height:1.6;color:var(--text);">' + (p.ai_summary || 'No analysis available') + '</div>' +
         '</div>' +
@@ -890,25 +892,28 @@ async function showPlayerModal(id) {
                 '<div style="font-size:10px;color:var(--muted);margin-bottom:4px;">TRANSFERS OUT THIS GW</div>' +
                 '<div style="font-size:15px;font-weight:700;color:var(--red);">-' + (p.transfers_out || 0).toLocaleString() + '</div>' +
             '</div>' +
-        '</div>' +
-        '<button class="btn btn-lg" onclick="findReplacement(' + p.id + ')" style="margin-top:16px;">🔄 Find Replacement</button>' +
-        '<div id="replacementResults" style="margin-top:16px;"></div>';
+        '</div>';
 }
 
 async function findReplacement(playerId) {
     const el = document.getElementById('replacementResults');
     el.innerHTML = '<div class="loading-state"><div class="spinner"></div>Finding alternatives…</div>';
-
     const res = await fetch('/find-replacement/' + playerId);
     const data = await res.json();
 
+    const searchBoxHTML = '<div style="position:relative;margin-bottom:14px;">' +
+        '<span class="search-icon" style="left:14px;font-size:15px;">🔍</span>' +
+        '<input type="text" id="manualReplaceSearch" placeholder="Or search for any player…" ' +
+        'style="width:100%;padding:10px 14px 10px 40px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;" ' +
+        'oninput="manualReplaceSearch()">' +
+    '</div><div id="manualReplaceResults"></div>';
+
     if (data.error || !data.alternatives.length) {
-        el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px;">No good alternatives found within budget range.</div>';
+        el.innerHTML = searchBoxHTML + '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px;">No good alternatives found within budget range.</div>';
         return;
     }
 
-    let html = '<div style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Top alternatives</div>';
-
+    let html = searchBoxHTML + '<div style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:1px;margin:14px 0 10px;">Top alternatives</div>';
     data.alternatives.forEach(p => {
         const fix = p.next_fixture || {};
         const fdr = fdrInfo(fix.difficulty);
@@ -927,7 +932,50 @@ async function findReplacement(playerId) {
         '</div>';
     });
 
-    el.innerHTML = html;
+       el.innerHTML = html;
+}
+
+let replaceSearchTimer;
+async function manualReplaceSearch() {
+    clearTimeout(replaceSearchTimer);
+    const q = document.getElementById('manualReplaceSearch').value.trim();
+    const resultsEl = document.getElementById('manualReplaceResults');
+
+    if (!q) {
+        resultsEl.innerHTML = '';
+        return;
+    }
+
+    replaceSearchTimer = setTimeout(async () => {
+        const res = await fetch('/search?q=' + encodeURIComponent(q));
+        const players = await res.json();
+
+        if (!players.length) {
+            resultsEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--muted);font-size:12px;">No players found.</div>';
+            return;
+        }
+
+        let html = '';
+        players.slice(0, 5).forEach(p => {
+            const fix = p.next_fixture || {};
+            const fdr = fdrInfo(fix.difficulty);
+            html += '<div class="team-player" onclick="showPlayerModal(' + p.id + ')" style="cursor:pointer;">' +
+                '<div style="display:flex;align-items:center;gap:10px;">' +
+                    '<img src="' + (p.photo_url || '/static/placeholder.svg') + '" onerror="this.src=\'/static/placeholder.svg\'" style="width:32px;height:40px;object-fit:cover;border-radius:6px;">' +
+                    '<div>' +
+                        '<div class="team-player-name">' + p.name + ' <span class="pos-tag">' + p.position + '</span></div>' +
+                        '<div class="team-player-meta">' + p.team + ' · Form: ' + p.form + '</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div style="text-align:right;">' +
+                    '<div class="team-player-price">£' + p.price + 'm</div>' +
+                    '<span style="font-size:9px;font-weight:700;color:' + fdr.color + ';">' + fdr.label + '</span>' +
+                '</div>' +
+            '</div>';
+        });
+
+        resultsEl.innerHTML = html;
+    }, 250);
 }
 
 async function loadDeadline() {
