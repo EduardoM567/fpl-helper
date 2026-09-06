@@ -146,6 +146,42 @@ def compare_team(team_id):
     comparison = compare_to_optimal(team_data)
     return jsonify(comparison)
     
+@app.route('/find-replacement/<int:player_id>')
+def find_replacement(player_id):
+    players = get_all_players()
+    target = next((p for p in players if p['id'] == player_id), None)
+    
+    if not target:
+        return jsonify({'error': 'Player not found'}), 404
+    
+    # Find same-position players within a reasonable budget range
+    budget_flex = 2.0
+    candidates = [
+        p for p in players 
+        if p['position'] == target['position'] 
+        and p['id'] != player_id
+        and p['price'] <= target['price'] + budget_flex
+        and p['status'] in ['a', 'd']
+    ]
+    
+    # Score by form + fixture difficulty
+    for p in candidates:
+        fix = p.get('next_fixture', {})
+        fdr = fix.get('difficulty', 3)
+        fdr_bonus = {1: 1.3, 2: 1.15, 3: 1.0, 4: 0.85, 5: 0.7}.get(fdr, 1.0)
+        p['replacement_score'] = (p['form'] * 2 + p['ep_next'] * 3) * fdr_bonus
+    
+    candidates.sort(key=lambda x: x['replacement_score'], reverse=True)
+    
+    for p in candidates[:5]:
+        p['status_text'] = get_player_status(p['status'])
+        p['photo_url'] = get_player_photo_url(p.get('code'))
+    
+    return jsonify({
+        'target': target,
+        'alternatives': candidates[:5]
+    })
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
     app.run(debug=False, host='0.0.0.0', port=port)

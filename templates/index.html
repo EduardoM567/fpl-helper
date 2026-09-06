@@ -886,11 +886,48 @@ async function showPlayerModal(id) {
                 '<div style="font-size:10px;color:var(--muted);margin-bottom:4px;">TRANSFERS IN THIS GW</div>' +
                 '<div style="font-size:15px;font-weight:700;color:#10b981;">+' + (p.transfers_in || 0).toLocaleString() + '</div>' +
             '</div>' +
-            '<div style="padding:10px 14px;background:var(--bg);border-radius:8px;">' +
+                '<div style="padding:10px 14px;background:var(--bg);border-radius:8px;">' +
                 '<div style="font-size:10px;color:var(--muted);margin-bottom:4px;">TRANSFERS OUT THIS GW</div>' +
                 '<div style="font-size:15px;font-weight:700;color:var(--red);">-' + (p.transfers_out || 0).toLocaleString() + '</div>' +
             '</div>' +
+        '</div>' +
+        '<button class="btn btn-lg" onclick="findReplacement(' + p.id + ')" style="margin-top:16px;">🔄 Find Replacement</button>' +
+        '<div id="replacementResults" style="margin-top:16px;"></div>';
+}
+
+async function findReplacement(playerId) {
+    const el = document.getElementById('replacementResults');
+    el.innerHTML = '<div class="loading-state"><div class="spinner"></div>Finding alternatives…</div>';
+
+    const res = await fetch('/find-replacement/' + playerId);
+    const data = await res.json();
+
+    if (data.error || !data.alternatives.length) {
+        el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px;">No good alternatives found within budget range.</div>';
+        return;
+    }
+
+    let html = '<div style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Top alternatives</div>';
+
+    data.alternatives.forEach(p => {
+        const fix = p.next_fixture || {};
+        const fdr = fdrInfo(fix.difficulty);
+        html += '<div class="team-player" onclick="showPlayerModal(' + p.id + ')" style="cursor:pointer;">' +
+            '<div style="display:flex;align-items:center;gap:10px;">' +
+                '<img src="' + (p.photo_url || '/static/placeholder.svg') + '" onerror="this.src=\'/static/placeholder.svg\'" style="width:32px;height:40px;object-fit:cover;border-radius:6px;">' +
+                '<div>' +
+                    '<div class="team-player-name">' + p.name + '</div>' +
+                    '<div class="team-player-meta">' + p.team + ' · Form: ' + p.form + ' · vs ' + (fix.opponent || '?') + '</div>' +
+                '</div>' +
+            '</div>' +
+            '<div style="text-align:right;">' +
+                '<div class="team-player-price">£' + p.price + 'm</div>' +
+                '<span style="font-size:9px;font-weight:700;color:' + fdr.color + ';">' + fdr.label + '</span>' +
+            '</div>' +
         '</div>';
+    });
+
+    el.innerHTML = html;
 }
 
 async function loadDeadline() {
@@ -999,13 +1036,30 @@ async function loadMyTeam() {
             });
         }
 
-        html += '<h3 style="font-family:\'Bebas Neue\',sans-serif;font-size:22px;letter-spacing:1px;margin:24px 0 12px;">Starting XI</h3>';
         const starters = data.squad.filter(p => p.is_starting);
-        html += '<div class="player-grid">' + starters.map(playerCard).join('') + '</div>';
-
-        html += '<h3 style="font-family:\'Bebas Neue\',sans-serif;font-size:22px;letter-spacing:1px;margin:24px 0 12px;">Bench</h3>';
         const bench = data.squad.filter(p => !p.is_starting);
-        html += '<div class="player-grid">' + bench.map(playerCard).join('') + '</div>';
+        const startersByPos = pos => starters.filter(p => p.position === pos);
+        const gkpS = startersByPos('GKP');
+        const defS = startersByPos('DEF');
+        const midS = startersByPos('MID');
+        const fwdS = startersByPos('FWD');
+        const formation = defS.length + '-' + midS.length + '-' + fwdS.length;
+
+        starters.forEach(p => {
+            if (p.is_captain) p._captain = true;
+            if (p.is_vice_captain) p._vc = true;
+        });
+
+        html += '<h3 style="font-family:\'Bebas Neue\',sans-serif;font-size:22px;letter-spacing:1px;margin:24px 0 12px;">Your Squad (' + formation + ')</h3>';
+        html += '<div class="pitch-wrapper">' +
+            '<div class="pitch-lines"></div>' +
+            pitchRow(fwdS, false) +
+            pitchRow(midS, false) +
+            pitchRow(defS, false) +
+            pitchRow(gkpS, false) +
+            '<div class="bench-label">Bench</div>' +
+            pitchRow(bench, true) +
+        '</div>';
 
        el.innerHTML = html;
                 document.getElementById('compareSection').style.display = 'block';
