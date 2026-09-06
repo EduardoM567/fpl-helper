@@ -31,7 +31,7 @@
             line-height: 1.5;
         }
 
-        header {
+       header {
             position: sticky;
             top: 0;
             z-index: 100;
@@ -45,6 +45,22 @@
             justify-content: space-between;
             flex-wrap: wrap;
             gap: 8px;
+            overflow: hidden;
+        }
+        header::before {
+            content: '';
+            position: absolute;
+            top: -20px;
+            left: 10%;
+            width: 200px;
+            height: 100px;
+            background: radial-gradient(circle, rgba(0,255,135,0.15) 0%, transparent 70%);
+            animation: floatGlow 8s ease-in-out infinite;
+            pointer-events: none;
+        }
+        @keyframes floatGlow {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(40px, 20px); }
         }
         .logo { display: flex; align-items: center; gap: 10px; }
         .logo-icon {
@@ -110,8 +126,15 @@
         .page-title span { color: var(--green); }
         .page-subtitle { color: var(--muted); font-size: 14px; }
 
-        .section { display: none; }
-        .section.active { display: block; }
+        .section { display: none; opacity: 0; }
+        .section.active {
+            display: block;
+            animation: sectionFadeIn 0.35s ease forwards;
+        }
+        @keyframes sectionFadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
 
         .search-bar { position: relative; margin-bottom: 28px; }
         .search-bar input {
@@ -327,6 +350,26 @@
             animation:spin 0.8s linear infinite; margin:0 auto 16px;
         }
         @keyframes spin { to { transform:rotate(360deg); } }
+        .skeleton-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            height: 220px;
+            position: relative;
+            overflow: hidden;
+        }
+        .skeleton-card::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent);
+            animation: shimmer 1.5s infinite;
+        }
+        @keyframes shimmer {
+            from { transform: translateX(-100%); }
+            to { transform: translateX(100%); }
+        }
         .empty-icon { font-size:52px; margin-bottom:16px; }
         .empty-title { font-size:16px; font-weight:600; color:var(--text); margin-bottom:8px; }
         .empty-sub { font-size:13px; }
@@ -568,6 +611,12 @@ function posEmoji(pos) {
     return emojis[pos] || '⚽';
 }
 
+function skeletonGrid(count) {
+    return '<div class="player-grid">' +
+        Array(count || 6).fill('<div class="skeleton-card"></div>').join('') +
+        '</div>';
+}
+
 function showSection(id, el) {
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -677,7 +726,7 @@ async function loadTopPlayers() {
     const pos = document.getElementById('posFilter').value;
     const sort = document.getElementById('sortFilter').value;
     document.getElementById('topResults').innerHTML =
-        '<div class="loading-state"><div class="spinner"></div>Loading players…</div>';
+        skeletonGrid(8);
     const res = await fetch('/top-players?position=' + pos + '&sort=' + sort + '&limit=20');
     const players = await res.json();
     document.getElementById('topResults').innerHTML =
@@ -893,7 +942,7 @@ loadDeadline();
 
 async function loadTransfers() {
     const el = document.getElementById('transferResults');
-    el.innerHTML = '<div class="loading-state"><div class="spinner"></div>Loading transfer tips…</div>';
+    el.innerHTML = skeletonGrid(6);
     
     const res = await fetch('/transfers');
     const data = await res.json();
