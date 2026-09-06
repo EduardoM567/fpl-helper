@@ -53,51 +53,95 @@ def get_user_team(team_id, gameweek=None):
 
 
 def analyze_team(team_data):
-    """Generate suggestions for the user's team"""
+    """Generate specific, actionable suggestions for the user's team"""
     squad = team_data['squad']
     starting = [p for p in squad if p['is_starting']]
     bench = [p for p in squad if not p['is_starting']]
 
     suggestions = []
 
-    # Check for injured/unavailable starters
+    def calc_priority(p):
+        """Lower score = should be replaced first"""
+        fix = p.get('next_fixture', {})
+        fdr = fix.get('difficulty', 3)
+        fdr_penalty = {1: 0, 2: 5, 3: 10, 4: 20, 5: 30}.get(fdr, 10)
+        status_penalty = {'i': 100, 's': 100, 'n': 100, 'd': 40}.get(p['status'], 0)
+        return p['form'] * 3 + p['ep_next'] * 2 - fdr_penalty - status_penalty
+
+    # Score every starter and bench player
+    for p in starting + bench:
+        p['_priority'] = calc_priority(p)
+
+    # 1. Injured/unavailable starters — find best same-position replacement (bench first, then any squad player)
     for p in starting:
         if p['status'] in ['i', 's', 'n']:
-            suggestions.append({
-                'type': 'urgent',
-                'player': p['name'],
-                'message': f"{p['name']} is {p['status_text']} — consider transferring out before the deadline."
-            })
-        elif p['status'] == 'd':
+            same_pos_bench = [b for b in bench if b['position'] == p['position']]
+            same_pos_bench.sort(key=lambda x: x['_priority'], reverse=True)
+
+            if same_pos_bench:
+                best = same_pos_bench[0]
+                suggestions.append({
+                    'type': 'urgent',
+                    'player': p['name'],
+                    'message': f"{p['name']} is {p['status_text']} — start {best['name']} from your bench instead."
+                })
+            else:
+                suggestions.append({
+                    'type': 'urgent',
+                    'player': p['name'],
+                    'message': f"{p['name']} is {p['status_text']} — you have no bench cover, consider a transfer before the deadline."
+                })
+
+    # 2. Doubtful starters
+    for p in starting:
+        if p['status'] == 'd':
             suggestions.append({
                 'type': 'warning',
                 'player': p['name'],
-                'message': f"{p['name']} is doubtful — check news before the deadline."
+                'message': f"{p['name']} is doubtful for GW{team_data['gameweek']} — check the team news before the deadline closes."
             })
 
-    # Check for hard fixtures among starters
+    # 3. Weak starter + hard fixture, paired with a stronger bench option at same position
     for p in starting:
+        if p['status'] in ['i', 's', 'n', 'd']:
+            continue  # already covered above
+
         fix = p.get('next_fixture', {})
         if fix.get('difficulty', 3) >= 4:
-            suggestions.append({
-                'type': 'info',
-                'player': p['name'],
-                'message': f"{p['name']} faces a tough fixture vs {fix.get('opponent','?')} (FDR {fix['difficulty']}) — consider benching if you have a better option."
-            })
+            same_pos_bench = [b for b in bench if b['position'] == p['position'] and b['status'] == 'a']
+            same_pos_bench.sort(key=lambda x: x['_priority'], reverse=True)
 
-    # Check for in-form bench players
-    for p in bench:
-        if p['form'] >= 6.0:
-            fix = p.get('next_fixture', {})
+            if same_pos_bench and same_pos_bench[0]['_priority'] > p['_priority']:
+                best = same_pos_bench[0]
+                suggestions.append({
+                    'type': 'info',
+                    'player': p['name'],
+                    'message': f"{p['name']} faces {fix.get('opponent','?')} (FDR {fix['difficulty']}) — bench them for {best['name']} who has an easier fixture."
+                })
+            else:
+                suggestions.append({
+                    'type': 'info',
+                    'player': p['name'],
+                    'message': f"{p['name']} faces a tough fixture vs {fix.get('opponent','?')} (FDR {fix['difficulty']}) — may still be worth starting if no better bench option."
+                })
+
+    # 4. In-form bench players who should replace a weaker starter at the same position
+    for b in bench:
+        if b['status'] != 'a' or b['form'] < 6.0:
+            continue
+
+        same_pos_starters = [s for s in starting if s['position'] == b['position']]
+        same_pos_starters.sort(key=lambda x: x['_priority'])
+
+        if same_pos_starters and b['_priority'] > same_pos_starters[0]['_priority']:
+            weakest = same_pos_starters[0]
             suggestions.append({
                 'type': 'tip',
-                'player': p['name'],
-                'message': f"{p['name']} is in great form ({p['form']}) but benched — consider starting them over a weaker starter."
+                'player': b['name'],
+                'message': f"{b['name']} is in great form ({b['form']}) — start them over {weakest['name']} this week."
             })
 
     return suggestions
-
-
 
 def compare_to_optimal(team_data):
     """Compare user's actual team to what the algorithm would build"""
