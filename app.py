@@ -126,11 +126,12 @@ def transfer_suggestions():
 def my_team(team_id):
     from team_lookup import get_user_team, analyze_team
     
+    free_transfers = int(request.args.get('free_transfers', 1))
     team_data = get_user_team(team_id)
     if not team_data:
         return jsonify({'error': 'Team not found. Check your Team ID.'}), 404
     
-    suggestions = analyze_team(team_data)
+    suggestions = analyze_team(team_data, free_transfers)
     team_data['suggestions'] = suggestions
     
     return jsonify(team_data)
@@ -192,6 +193,20 @@ def optimize_team(team_id):
     
     optimized = get_optimized_lineup(team_data)
     return jsonify(optimized)
+
+@app.route('/my-team/<int:team_id>/suggest-transfer')
+def suggest_transfer_route(team_id):
+    from team_lookup import get_user_team, suggest_transfer
+    
+    team_data = get_user_team(team_id)
+    if not team_data:
+        return jsonify({'error': 'Team not found'}), 404
+    
+    transfer = suggest_transfer(team_data)
+    if not transfer:
+        return jsonify({'message': 'Your current lineup is already optimal — no beneficial transfer found!'})
+    
+    return jsonify(transfer)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))

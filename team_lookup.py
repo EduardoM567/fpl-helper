@@ -52,7 +52,7 @@ def get_user_team(team_id, gameweek=None):
     }
 
 
-def analyze_team(team_data):
+def analyze_team(team_data, free_transfers=1):
     """Generate specific, actionable suggestions for the user's team"""
     squad = team_data['squad']
     starting = [p for p in squad if p['is_starting']]
@@ -72,6 +72,8 @@ def analyze_team(team_data):
     for p in starting + bench:
         p['_priority'] = calc_priority(p)
 
+    transfers_used = 0
+
     # 1. Injured/unavailable starters — find best same-position replacement (bench first, then any squad player)
     for p in starting:
         if p['status'] in ['i', 's', 'n']:
@@ -86,10 +88,12 @@ def analyze_team(team_data):
                     'message': f"{p['name']} is {p['status_text']} — start {best['name']} from your bench instead."
                 })
             else:
+                transfers_used += 1
+                cost_note = "" if transfers_used <= free_transfers else f" (costs -4 points, you have {free_transfers} free transfer{'s' if free_transfers != 1 else ''})"
                 suggestions.append({
                     'type': 'urgent',
                     'player': p['name'],
-                    'message': f"{p['name']} is {p['status_text']} — you have no bench cover, consider a transfer before the deadline."
+                    'message': f"{p['name']} is {p['status_text']} — you have no bench cover, consider a transfer before the deadline{cost_note}."
                 })
 
     # 2. Doubtful starters
@@ -201,6 +205,64 @@ def get_optimized_lineup(team_data):
         'vice_captain': vice_captain,
         'formation': starters.get('formation', '4-4-2'),
         'changes_needed': changes_needed
+    }
+
+def suggest_transfer(team_data):
+    """Suggest the single best transfer using the free transfer, based on the OPTIMIZED lineup"""
+    from fpl_api import get_all_players
+    from team_builder import get_best_formation
+    
+    squad = team_data['squad']
+    squad_ids = set(p['id'] for p in squad)
+    bank = team_data['bank']
+    
+    all_players = get_all_players()
+    
+    def calc_score(p):
+        fix = p.get('next_fixture', {})
+        fdr = fix.get('difficulty', 3)
+        fdr_bonus = {1: 1.3, 2: 1.15, 3: 1.0, 4: 0.85, 5: 0.7}.get(fdr, 1.0)
+        return (p['form'] * 2 + p['ep_next'] * 3) * fdr_bonus
+    
+    for p in squad:
+        p['_score'] = calc_score(p)
+    
+    # Use the OPTIMIZED starters, not FPL's raw is_starting flag,
+    # so this stays consistent with the Optimize Lineup feature
+    starters_dict, _ = get_best_formation(squad)
+    starting = []
+    for pos in ['GKP', 'DEF', 'MID', 'FWD']:
+        starting.extend(starters_dict.get(pos, []))
+    
+    weakest = min(starting, key=lambda x: x['_score'])
+    
+    max_price = weakest['price'] + bank
+    
+    candidates = [
+        p for p in all_players
+        if p['position'] == weakest['position']
+        and p['id'] not in squad_ids
+        and p['price'] <= max_price
+        and p['status'] == 'a'
+    ]
+    
+    for p in candidates:
+        p['_score'] = calc_score(p)
+    
+    candidates.sort(key=lambda x: x['_score'], reverse=True)
+    
+    if not candidates or candidates[0]['_score'] <= weakest['_score']:
+        return None
+    
+    best = candidates[0]
+    price_diff = round(best['price'] - weakest['price'], 1)
+    
+    return {
+        'transfer_out': weakest,
+        'transfer_in': best,
+        'price_diff': price_diff,
+        'new_bank': round(bank - price_diff, 1),
+        'should_start': True
     }
 
 if __name__ == '__main__':

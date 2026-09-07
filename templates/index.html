@@ -576,19 +576,29 @@
                 <div class="page-title">My <span>Team</span></div>
                 <div class="page-subtitle">Enter your FPL Team ID to see personalized analysis</div>
             </div>
-            <div class="search-bar" style="max-width:400px;">
+             <div class="search-bar" style="max-width:400px;">
                 <span class="search-icon">👤</span>
                 <input type="text" id="teamIdInput" placeholder="Enter your Team ID (e.g. 1234567)" 
                     onkeyup="if(event.key==='Enter') loadMyTeam()">
+            </div>
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px;">
+                <label style="font-size:13px; color:var(--muted);">Free transfers available:</label>
+                <select id="freeTransfers" style="padding:6px 10px;">
+                    <option value="1" selected>1</option>
+                    <option value="2">2</option>
+                    <option value="0">0</option>
+                </select>
             </div>
             <button class="btn" onclick="loadMyTeam()" style="margin-bottom:24px;">Load My Team</button>
             <div id="compareSection" style="display:none; margin-bottom:24px;">
                 <div style="display:flex; gap:10px; flex-wrap:wrap;">
                     <button class="btn btn-outline" onclick="loadComparison()">📊 Compare to Optimal Team</button>
                     <button class="btn btn-outline" onclick="loadOptimizedLineup()">⚡ Optimize My Lineup</button>
+                    <button class="btn btn-outline" onclick="loadSuggestedTransfer()">🔄 Suggest My Transfer</button>
                 </div>
                 <div id="comparisonResults" style="margin-top:16px;"></div>
                 <div id="optimizedResults" style="margin-top:16px;"></div>
+                <div id="transferSuggestionResults" style="margin-top:16px;"></div>
             </div>
             <div id="myTeamResults">
                 <div class="empty-state">
@@ -1072,7 +1082,8 @@ async function loadMyTeam() {
     el.innerHTML = '<div class="loading-state"><div class="spinner"></div>Loading your team…</div>';
 
     try {
-        const res = await fetch('/my-team/' + teamId);
+        const freeTransfers = document.getElementById('freeTransfers').value;
+        const res = await fetch('/my-team/' + teamId + '?free_transfers=' + freeTransfers);
         const data = await res.json();
 
         if (data.error) {
@@ -1202,10 +1213,55 @@ async function loadOptimizedLineup() {
             pitchRow(data.starters.DEF || [], false) +
             pitchRow(data.starters.GKP || [], false) +
             '<div class="bench-label">Bench</div>' +
-            pitchRow(data.bench || [], true) +
+                       pitchRow(data.bench || [], true) +
         '</div>';
-
     el.innerHTML = html;
+}
+
+async function loadSuggestedTransfer() {
+    const teamId = document.getElementById('teamIdInput').value.trim();
+    if (!teamId) return;
+
+    const el = document.getElementById('transferSuggestionResults');
+    el.innerHTML = '<div class="loading-state"><div class="spinner"></div>Finding best transfer…</div>';
+
+    const res = await fetch('/my-team/' + teamId + '/suggest-transfer');
+    const data = await res.json();
+
+    if (data.message) {
+        el.innerHTML = '<div style="padding:14px 16px;background:rgba(0,255,135,0.1);border:1px solid rgba(0,255,135,0.3);border-radius:10px;font-size:13px;color:var(--green);">✅ ' + data.message + '</div>';
+        return;
+    }
+
+    const out = data.transfer_out;
+    const inn = data.transfer_in;
+    const diffColor = data.price_diff > 0 ? 'var(--red)' : 'var(--green)';
+    const diffSign = data.price_diff > 0 ? '+' : '';
+
+    el.innerHTML =
+        '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;">' +
+            '<div style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;">Recommended Transfer</div>' +
+            '<div style="padding:8px 12px;background:rgba(0,255,135,0.08);border-radius:8px;font-size:12px;color:var(--green);margin-bottom:14px;">💡 Start ' + inn.name + ' immediately in place of ' + out.name + ' — they replace them in your starting XI.</div>' +
+            '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">' +
+                '<div style="flex:1;text-align:center;">' +
+                    '<div style="font-size:11px;color:var(--red);font-weight:700;margin-bottom:6px;">OUT</div>' +
+                    '<img src="' + (out.photo_url || '/static/placeholder.svg') + '" onerror="this.src=\'/static/placeholder.svg\'" style="width:56px;height:70px;object-fit:cover;border-radius:8px;margin-bottom:6px;">' +
+                    '<div style="font-weight:700;font-size:14px;">' + out.name + '</div>' +
+                    '<div style="font-size:11px;color:var(--muted);">£' + out.price + 'm</div>' +
+                '</div>' +
+                '<div style="font-size:24px;color:var(--muted);">→</div>' +
+                '<div style="flex:1;text-align:center;">' +
+                    '<div style="font-size:11px;color:var(--green);font-weight:700;margin-bottom:6px;">IN</div>' +
+                    '<img src="' + (inn.photo_url || '/static/placeholder.svg') + '" onerror="this.src=\'/static/placeholder.svg\'" style="width:56px;height:70px;object-fit:cover;border-radius:8px;margin-bottom:6px;">' +
+                    '<div style="font-weight:700;font-size:14px;">' + inn.name + '</div>' +
+                    '<div style="font-size:11px;color:var(--muted);">£' + inn.price + 'm</div>' +
+                '</div>' +
+            '</div>' +
+            '<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:12px;">' +
+                '<span style="color:var(--muted);">Cost: <strong style="color:' + diffColor + ';">' + diffSign + '£' + data.price_diff + 'm</strong></span>' +
+                '<span style="color:var(--muted);">New bank: <strong style="color:var(--text);">£' + data.new_bank + 'm</strong></span>' +
+            '</div>' +
+        '</div>';
 }
 </script>
 <!-- Mobile Bottom Nav -->
