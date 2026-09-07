@@ -175,8 +175,11 @@
         }
         .player-card:hover {
             border-color: #2d3f55;
-            transform: translateY(-3px);
+            transform: translateY(-4px);
             box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+        }
+        .player-card {
+            transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
         @keyframes fadeUp {
             from { opacity:0; transform:translateY(12px); }
