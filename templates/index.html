@@ -259,6 +259,8 @@
             display:inline-flex; align-items:center; gap:6px;
         }
         .btn:hover { background:#00e87a; transform:translateY(-1px); box-shadow:0 4px 16px rgba(0,255,135,0.25); }
+        .btn:active { transform:translateY(0) scale(0.96); }
+.btn    -outline:active { transform:scale(0.96); }
         .btn-lg { padding:14px 28px; font-size:15px; width:100%; justify-content:center; border-radius:10px; }
         .btn-outline { background:transparent; border:1px solid var(--border); color:var(--text); }
         .btn-outline:hover { background:var(--surface2); border-color:#2d3f55; box-shadow:none; }
@@ -268,7 +270,9 @@
             background:var(--surface); border:2px solid var(--border);
             border-radius:10px; padding:18px 12px; text-align:center; cursor:pointer; transition:all 0.15s;
         }
-        .strat-card:hover { border-color:#2d3f55; transform:translateY(-2px); }
+        .strat-card { transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .strat-card:hover { border-color:#2d3f55; transform:translateY(-3px); }
+        .strat-card:active { transform:scale(0.96); }
         .strat-card.active { border-color:var(--green); background:var(--green-dim); }
         .strat-emoji { font-size:26px; display:block; margin-bottom:8px; }
         .strat-name { font-size:12px; font-weight:700; color:var(--text); display:block; }
