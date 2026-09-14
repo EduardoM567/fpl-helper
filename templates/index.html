@@ -611,10 +611,12 @@
                     <button class="btn btn-outline" onclick="loadComparison()">📊 Compare to Optimal Team</button>
                     <button class="btn btn-outline" onclick="loadOptimizedLineup()">⚡ Optimize My Lineup</button>
                     <button class="btn btn-outline" onclick="loadSuggestedTransfer()">🔄 Suggest My Transfer</button>
+                    <button class="btn btn-outline" onclick="loadChipStatus()">🎴 Chip Status</button>
                 </div>
                 <div id="comparisonResults" style="margin-top:16px;"></div>
                 <div id="optimizedResults" style="margin-top:16px;"></div>
                 <div id="transferSuggestionResults" style="margin-top:16px;"></div>
+                <div id="chipResults" style="margin-top:16px;"></div>
             </div>
             <div id="myTeamResults">
                 <div class="empty-state">
@@ -1275,9 +1277,104 @@ async function loadSuggestedTransfer() {
             '</div>' +
             '<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:12px;">' +
                 '<span style="color:var(--muted);">Cost: <strong style="color:' + diffColor + ';">' + diffSign + '£' + data.price_diff + 'm</strong></span>' +
-                '<span style="color:var(--muted);">New bank: <strong style="color:var(--text);">£' + data.new_bank + 'm</strong></span>' +
+                '<span style="color:var(--muted);">New bank: <strong style="color:var(--text);">£' +data.new_bank + 'm</strong></span>' +
             '</div>' +
+            '<button class="btn btn-lg" onclick="previewTransfer()" style="margin-top:14px;">👁️ Preview Optimized Lineup After This Transfer</button>' +
+        '</div>' +
+        '<div id="transferPreviewResults" style="margin-top:16px;"></div>';
+}
+
+async function previewTransfer() {
+    const teamId = document.getElementById('teamIdInput').value.trim();
+    if (!teamId) return;
+
+    const el = document.getElementById('transferPreviewResults');
+    el.innerHTML = '<div class="loading-state"><div class="spinner"></div>Building preview…</div>';
+
+    const res = await fetch('/my-team/' + teamId + '/preview-transfer');
+    const data = await res.json();
+
+    if (data.message) {
+        el.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:13px;">' + data.message + '</div>';
+        return;
+    }
+
+    const opt = data.optimized_lineup;
+
+    ['GKP', 'DEF', 'MID', 'FWD'].forEach(pos => {
+        (opt.starters[pos] || []).forEach(p => {
+            if (opt.captain && p.id === opt.captain.id) p._captain = true;
+            if (opt.vice_captain && p.id === opt.vice_captain.id) p._vc = true;
+        });
+    });
+    (opt.bench || []).forEach(p => {
+        if (opt.captain && p.id === opt.captain.id) p._captain = true;
+        if (opt.vice_captain && p.id === opt.vice_captain.id) p._vc = true;
+    });
+
+    el.innerHTML =
+        '<div style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Lineup After Transfer</div>' +
+        '<div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Formation: <strong style="color:var(--text);">' + opt.formation + '</strong></div>' +
+        '<div class="pitch-wrapper">' +
+            '<div class="pitch-lines"></div>' +
+            pitchRow(opt.starters.FWD || [], false) +
+            pitchRow(opt.starters.MID || [], false) +
+            pitchRow(opt.starters.DEF || [], false) +
+            pitchRow(opt.starters.GKP || [], false) +
+            '<div class="bench-label">Bench</div>' +
+            pitchRow(opt.bench || [], true) +
         '</div>';
+}
+
+async function loadChipStatus() {
+    const teamId = document.getElementById('teamIdInput').value.trim();
+    if (!teamId) return;
+
+    const el = document.getElementById('chipResults');
+    el.innerHTML = '<div class="loading-state"><div class="spinner"></div>Checking chips…</div>';
+
+    const res = await fetch('/my-team/' + teamId + '/chips');
+    const data = await res.json();
+
+    if (data.error) {
+        el.innerHTML = '<div style="text-align:center;padding:16px;color:var(--muted);font-size:13px;">' + data.error + '</div>';
+        return;
+    }
+
+    let html = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;">' +
+        '<div style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;">Chip Status</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px;">';
+
+    const chipEmojis = {wildcard: '🃏', freehit: '🎯', bboost: '🛋️', '3xc': '⭐'};
+
+    data.chips.forEach(chip => {
+        const bg = chip.used ? 'rgba(100,116,139,0.1)' : 'rgba(0,255,135,0.08)';
+        const border = chip.used ? 'var(--border)' : 'rgba(0,255,135,0.3)';
+        const textColor = chip.used ? 'var(--muted)' : 'var(--green)';
+        const statusText = chip.used ? 'Used (GW' + chip.used_gw + ')' : 'Available';
+
+        html += '<div style="background:' + bg + ';border:1px solid ' + border + ';border-radius:8px;padding:12px;text-align:center;">' +
+            '<div style="font-size:24px;margin-bottom:4px;">' + (chipEmojis[chip.key] || '🎴') + '</div>' +
+            '<div style="font-size:13px;font-weight:700;color:var(--text);">' + chip.label + '</div>' +
+            '<div style="font-size:11px;color:' + textColor + ';margin-top:2px;">' + statusText + '</div>' +
+        '</div>';
+    });
+
+    html += '</div>';
+
+    if (data.suggestions && data.suggestions.length > 0) {
+        html += '<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px;">💡 This week\'s suggestions:</div>';
+        data.suggestions.forEach(s => {
+            html += '<div style="padding:10px 14px;background:rgba(0,255,135,0.08);border-radius:8px;font-size:12px;color:var(--text);margin-bottom:8px;">' +
+                '<strong style="color:var(--green);">' + s.chip + ':</strong> ' + s.recommendation +
+            '</div>';
+        });
+    } else {
+        html += '<div style="font-size:12px;color:var(--muted);">No strong chip recommendations for this gameweek — chips are best saved for the right moment.</div>';
+    }
+
+    html += '</div>';
+    el.innerHTML = html;
 }
 </script>
 <!-- Mobile Bottom Nav -->

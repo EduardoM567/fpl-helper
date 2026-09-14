@@ -208,6 +208,52 @@ def suggest_transfer_route(team_id):
     
     return jsonify(transfer)
 
+@app.route('/my-team/<int:team_id>/chips')
+def chips_status(team_id):
+    from team_lookup import get_user_team, get_chip_status, suggest_chip_timing
+    
+    chip_status = get_chip_status(team_id)
+    if chip_status is None:
+        return jsonify({'error': 'Team not found'}), 404
+    
+    team_data = get_user_team(team_id)
+    chip_suggestions = suggest_chip_timing(team_data, chip_status)
+    
+    return jsonify({
+        'chips': chip_status,
+        'suggestions': chip_suggestions
+    })
+
+@app.route('/my-team/<int:team_id>/preview-transfer')
+def preview_transfer(team_id):
+    from team_lookup import get_user_team, suggest_transfer, get_optimized_lineup
+    
+    team_data = get_user_team(team_id)
+    if not team_data:
+        return jsonify({'error': 'Team not found'}), 404
+    
+    transfer = suggest_transfer(team_data)
+    if not transfer:
+        return jsonify({'message': 'No transfer needed — already optimal'})
+    
+    # Build the hypothetical new squad
+    new_squad = [p for p in team_data['squad'] if p['id'] != transfer['transfer_out']['id']]
+    incoming = dict(transfer['transfer_in'])
+    incoming['is_starting'] = True
+    incoming['is_captain'] = False
+    incoming['is_vice_captain'] = False
+    new_squad.append(incoming)
+    
+    hypothetical_team = dict(team_data)
+    hypothetical_team['squad'] = new_squad
+    
+    optimized = get_optimized_lineup(hypothetical_team)
+    
+    return jsonify({
+        'transfer': transfer,
+        'optimized_lineup': optimized
+    })
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
     app.run(debug=False, host='0.0.0.0', port=port)

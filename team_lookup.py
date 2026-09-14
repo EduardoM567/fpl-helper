@@ -265,6 +265,80 @@ def suggest_transfer(team_data):
         'should_start': True
     }
 
+def get_chip_status(team_id):
+    """Check which chips a user has used and which are still available"""
+    import requests
+    
+    response = requests.get(f'https://fantasy.premierleague.com/api/entry/{team_id}/history/')
+    if response.status_code != 200:
+        return None
+    
+    data = response.json()
+    used_chips = data.get('chips', [])
+    
+    chip_names = {
+        'wildcard': 'Wildcard',
+        'freehit': 'Free Hit',
+        'bboost': 'Bench Boost',
+        '3xc': 'Triple Captain'
+    }
+    
+    # Determine current half of season (chips reset after GW19)
+    current_gw = get_current_gameweek()
+    half = 1 if current_gw <= 19 else 2
+    
+    used_this_half = {}
+    for chip in used_chips:
+        chip_gw = chip['event']
+        chip_half = 1 if chip_gw <= 19 else 2
+        if chip_half == half:
+            used_this_half[chip['name']] = chip['event']
+    
+    status = []
+    for chip_key, chip_label in chip_names.items():
+        status.append({
+            'key': chip_key,
+            'label': chip_label,
+            'used': chip_key in used_this_half,
+            'used_gw': used_this_half.get(chip_key)
+        })
+    
+    return status
+
+
+def suggest_chip_timing(team_data, chip_status):
+    """Suggest whether now is a good time to use available chips"""
+    suggestions = []
+    squad = team_data['squad']
+    starting = [p for p in squad if p['is_starting']]
+    
+    for chip in chip_status:
+        if chip['used']:
+            continue
+        
+        if chip['key'] == '3xc':
+            # Check if captain has a great fixture
+            outfield = [p for p in starting if p['position'] != 'GKP']
+            if outfield:
+                best = max(outfield, key=lambda x: x['ep_next'])
+                fix = best.get('next_fixture', {})
+                if fix.get('difficulty', 3) <= 2 and best['form'] >= 6.0:
+                    suggestions.append({
+                        'chip': 'Triple Captain',
+                        'recommendation': f"Good week to consider — {best['name']} has an easy fixture (FDR {fix['difficulty']}) and strong form ({best['form']})."
+                    })
+        
+        elif chip['key'] == 'bboost':
+            bench = [p for p in squad if not p['is_starting']]
+            bench_score = sum(p['form'] for p in bench)
+            if bench_score >= 15:
+                suggestions.append({
+                    'chip': 'Bench Boost',
+                    'recommendation': f"Your bench has strong combined form ({round(bench_score,1)}) — could be worth using Bench Boost this week."
+                })
+    
+    return suggestions
+
 if __name__ == '__main__':
     team = get_user_team(5292186)
     print(f"Total points: {team['total_points']}")
