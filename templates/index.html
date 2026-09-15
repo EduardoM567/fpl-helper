@@ -1379,6 +1379,8 @@ async function loadChipStatus() {
     el.innerHTML = html;
 }
 
+let optimalTransferData = null;
+
 async function loadOptimalTransferCount() {
     const teamId = document.getElementById('teamIdInput').value.trim();
     if (!teamId) return;
@@ -1395,19 +1397,30 @@ async function loadOptimalTransferCount() {
         return;
     }
 
+    optimalTransferData = data;
+    renderTransferOptions(data.recommended.num_transfers);
+}
+
+function renderTransferOptions(selectedCount) {
+    const data = optimalTransferData;
     const rec = data.recommended;
+    const el = document.getElementById('optimalTransferResults');
+
+    const selectedOption = data.all_options.find(o => o.num_transfers === selectedCount) || rec;
 
     let html = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;">' +
         '<div style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;">Optimal Transfer Strategy</div>' +
+        '<div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Click any option to see its specific transfers</div>' +
         '<div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">';
 
     data.all_options.forEach(opt => {
         const isRecommended = opt.num_transfers === rec.num_transfers;
-        const bg = isRecommended ? 'var(--green-dim)' : 'var(--bg)';
-        const border = isRecommended ? 'var(--green)' : 'var(--border)';
-        const textColor = isRecommended ? 'var(--green)' : 'var(--text)';
+        const isSelected = opt.num_transfers === selectedCount;
+        const bg = isSelected ? 'var(--green-dim)' : 'var(--bg)';
+        const border = isSelected ? 'var(--green)' : 'var(--border)';
+        const textColor = isSelected ? 'var(--green)' : 'var(--text)';
 
-        html += '<div style="flex:1;min-width:100px;background:' + bg + ';border:2px solid ' + border + ';border-radius:10px;padding:14px;text-align:center;">' +
+        html += '<div onclick="renderTransferOptions(' + opt.num_transfers + ')" style="cursor:pointer;flex:1;min-width:100px;background:' + bg + ';border:2px solid ' + border + ';border-radius:10px;padding:14px;text-align:center;transition:all 0.2s;">' +
             '<div style="font-size:20px;font-weight:800;color:' + textColor + ';">' + opt.num_transfers + '</div>' +
             '<div style="font-size:10px;color:var(--muted);margin-bottom:6px;">transfer' + (opt.num_transfers !== 1 ? 's' : '') + '</div>' +
             '<div style="font-size:12px;font-weight:700;color:' + (opt.net_gain > 0 ? 'var(--green)' : opt.net_gain < 0 ? 'var(--red)' : 'var(--muted)') + ';">' + (opt.net_gain > 0 ? '+' : '') + opt.net_gain + ' pts</div>' +
@@ -1417,12 +1430,12 @@ async function loadOptimalTransferCount() {
 
     html += '</div>';
 
-    if (rec.num_transfers === 0) {
-        html += '<div style="padding:10px 14px;background:rgba(0,255,135,0.08);border-radius:8px;font-size:13px;color:var(--green);">✅ Your squad is already well optimized — no transfers needed this week.</div>';
+    if (selectedOption.num_transfers === 0) {
+        html += '<div style="padding:10px 14px;background:rgba(0,255,135,0.08);border-radius:8px;font-size:13px;color:var(--green);">✅ No transfers — keep your current squad as is.</div>';
     } else {
-        html += '<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:10px;">Recommended: ' + rec.num_transfers + ' transfer' + (rec.num_transfers !== 1 ? 's' : '') + ' (net gain: +' + rec.net_gain + ' pts)</div>';
+        html += '<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:10px;">' + selectedOption.num_transfers + ' transfer' + (selectedOption.num_transfers !== 1 ? 's' : '') + ' (net gain: ' + (selectedOption.net_gain > 0 ? '+' : '') + selectedOption.net_gain + ' pts, cost: ' + selectedOption.total_point_cost + ' pts)</div>';
 
-        rec.transfers.forEach((t, i) => {
+        selectedOption.transfers.forEach((t, i) => {
             const costLabel = t.point_cost > 0 ? ' (-4 pts)' : ' (free)';
             html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border-radius:8px;margin-bottom:8px;">' +
                 '<span style="font-size:11px;color:var(--muted);width:20px;">#' + (i+1) + '</span>' +
