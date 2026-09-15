@@ -207,13 +207,15 @@ def get_optimized_lineup(team_data):
         'changes_needed': changes_needed
     }
 
-def suggest_transfer(team_data):
-    """Suggest the single best transfer using the free transfer, based on the OPTIMIZED lineup"""
+def suggest_transfer(team_data, max_transfers=1, free_transfers=1):
+    """
+    Suggest the best transfer(s), supporting multiple transfers with point cost awareness.
+    Each transfer beyond free_transfers costs -4 points.
+    """
     from fpl_api import get_all_players
     from team_builder import get_best_formation
     
-    squad = team_data['squad']
-    squad_ids = set(p['id'] for p in squad)
+    squad = [dict(p) for p in team_data['squad']]  # work on copies
     bank = team_data['bank']
     
     all_players = get_all_players()
@@ -224,45 +226,119 @@ def suggest_transfer(team_data):
         fdr_bonus = {1: 1.3, 2: 1.15, 3: 1.0, 4: 0.85, 5: 0.7}.get(fdr, 1.0)
         return (p['form'] * 2 + p['ep_next'] * 3) * fdr_bonus
     
-    for p in squad:
-        p['_score'] = calc_score(p)
+    transfers = []
+    remaining_bank = bank
+    working_squad = list(squad)
     
-    # Use the OPTIMIZED starters, not FPL's raw is_starting flag,
-    # so this stays consistent with the Optimize Lineup feature
-    starters_dict, _ = get_best_formation(squad)
-    starting = []
-    for pos in ['GKP', 'DEF', 'MID', 'FWD']:
-        starting.extend(starters_dict.get(pos, []))
+    for i in range(max_transfers):
+        for p in working_squad:
+            p['_score'] = calc_score(p)
+        
+        squad_ids = set(p['id'] for p in working_squad)
+        starters_dict, _ = get_best_formation(working_squad)
+        starting = []
+        for pos in ['GKP', 'DEF', 'MID', 'FWD']:
+            starting.extend(starters_dict.get(pos, []))
+        
+        already_swapped_out = set(t['transfer_out']['id'] for t in transfers)
+        candidates_to_replace = [p for p in starting if p['id'] not in already_swapped_out]
+        
+        if not candidates_to_replace:
+            break
+        
+        weakest = min(candidates_to_replace, key=lambda x: x['_score'])
+        max_price = weakest['price'] + remaining_bank
+        
+        candidates = [
+            p for p in all_players
+            if p['position'] == weakest['position']
+            and p['id'] not in squad_ids
+            and p['price'] <= max_price
+            and p['status'] == 'a'
+        ]
+        for p in candidates:
+            p['_score'] = calc_score(p)
+        candidates.sort(key=lambda x: x['_score'], reverse=True)
+        
+        if not candidates or candidates[0]['_score'] <= weakest['_score']:
+            break
+        
+        best = dict(candidates[0])
+        price_diff = round(best['price'] - weakest['price'], 1)
+        
+        transfer_number = i + 1
+        cost = 0 if transfer_number <= free_transfers else 4
+        
+        transfers.append({
+            'transfer_out': weakest,
+            'transfer_in': best,
+            'price_diff': price_diff,
+            'point_cost': cost
+        })
+        
+        # Apply this transfer to the working squad for the next iteration
+        working_squad = [p for p in working_squad if p['id'] != weakest['id']]
+        best['is_starting'] = True
+        best['is_captain'] = False
+        best['is_vice_captain'] = False
+        working_squad.append(best)
+        remaining_bank -= price_diff
     
-    weakest = min(starting, key=lambda x: x['_score'])
-    
-    max_price = weakest['price'] + bank
-    
-    candidates = [
-        p for p in all_players
-        if p['position'] == weakest['position']
-        and p['id'] not in squad_ids
-        and p['price'] <= max_price
-        and p['status'] == 'a'
-    ]
-    
-    for p in candidates:
-        p['_score'] = calc_score(p)
-    
-    candidates.sort(key=lambda x: x['_score'], reverse=True)
-    
-    if not candidates or candidates[0]['_score'] <= weakest['_score']:
+    if not transfers:
         return None
     
-    best = candidates[0]
-    price_diff = round(best['price'] - weakest['price'], 1)
+    total_point_cost = sum(t['point_cost'] for t in transfers)
     
     return {
-        'transfer_out': weakest,
-        'transfer_in': best,
-        'price_diff': price_diff,
-        'new_bank': round(bank - price_diff, 1),
-        'should_start': True
+        'transfers': transfers,
+        'total_point_cost': total_point_cost,
+        'new_bank': round(remaining_bank, 1),
+        'free_transfers_used': min(len(transfers), free_transfers),
+        'paid_transfers': max(0, len(transfers) - free_transfers)
+    }
+
+def find_optimal_transfer_count(team_data, free_transfers=1, max_to_try=3):
+    """
+    Try different numbers of transfers and recommend the one with the best 
+    net benefit (score improvement minus point cost).
+    """
+    results = []
+    
+    for n in range(0, max_to_try + 1):
+        if n == 0:
+            results.append({
+                'num_transfers': 0,
+                'net_gain': 0,
+                'total_point_cost': 0,
+                'transfers': []
+            })
+            continue
+        
+        suggestion = suggest_transfer(team_data, max_transfers=n, free_transfers=free_transfers)
+        if not suggestion or len(suggestion['transfers']) < n:
+            break
+        
+        # Estimate gain: sum of (incoming ep_next - outgoing ep_next) across all transfers
+        gain = sum(
+            t['transfer_in']['ep_next'] - t['transfer_out']['ep_next']
+            for t in suggestion['transfers']
+        )
+        net_gain = round(gain - suggestion['total_point_cost'], 2)
+        
+        results.append({
+            'num_transfers': n,
+            'net_gain': net_gain,
+            'total_point_cost': suggestion['total_point_cost'],
+            'transfers': suggestion['transfers'],
+            'new_bank': suggestion['new_bank']
+        })
+    
+    # Pick the option with the highest net gain
+    best = max(results, key=lambda x: x['net_gain'])
+    
+    return {
+        'recommended': best,
+        'all_options': results
     }
 
 def get_chip_status(team_id):

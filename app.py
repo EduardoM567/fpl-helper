@@ -254,6 +254,18 @@ def preview_transfer(team_id):
         'optimized_lineup': optimized
     })
 
+@app.route('/my-team/<int:team_id>/optimal-transfers')
+def optimal_transfers(team_id):
+    from team_lookup import get_user_team, find_optimal_transfer_count
+    
+    free_transfers = int(request.args.get('free_transfers', 1))
+    team_data = get_user_team(team_id)
+    if not team_data:
+        return jsonify({'error': 'Team not found'}), 404
+    
+    result = find_optimal_transfer_count(team_data, free_transfers)
+    return jsonify(result)
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
     app.run(debug=False, host='0.0.0.0', port=port)

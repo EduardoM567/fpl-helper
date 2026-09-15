@@ -25,6 +25,12 @@ def score_player(player, strategy='balanced'):
     if player['status'] not in ['a', 'd']:
         return 0
 
+    # Apply playing chance multiplier for more precise rotation/injury risk
+    chance = player.get('chance_of_playing_next')
+    if chance is not None:
+        playing_chance_multiplier = chance / 100
+    else:
+        playing_chance_multiplier = 1.0
     if strategy == 'balanced':
         score = (
             form * 2 +
@@ -77,6 +83,9 @@ def score_player(player, strategy='balanced'):
     # Boost genuinely elite players (high ownership + high total points = proven quality)
     if player.get('total_points', 0) >= 12 and player.get('selected_by', 0) > 20:
         score *= 1.4
+
+    # Apply playing chance multiplier — heavily penalize players unlikely to play
+    score *= playing_chance_multiplier
 
     return round(score, 2)
 
