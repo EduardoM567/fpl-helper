@@ -612,11 +612,13 @@
                     <button class="btn btn-outline" onclick="loadOptimizedLineup()">⚡ Optimize My Lineup</button>
                     <button class="btn btn-outline" onclick="loadSuggestedTransfer()">🔄 Suggest My Transfer</button>
                     <button class="btn btn-outline" onclick="loadChipStatus()">🎴 Chip Status</button>
+                    <button class="btn btn-outline" onclick="loadOptimalTransferCount()">🎯 Should I Take a Hit?</button>
                 </div>
                 <div id="comparisonResults" style="margin-top:16px;"></div>
                 <div id="optimizedResults" style="margin-top:16px;"></div>
                 <div id="transferSuggestionResults" style="margin-top:16px;"></div>
                 <div id="chipResults" style="margin-top:16px;"></div>
+                <div id="optimalTransferResults" style="margin-top:16px;"></div>
             </div>
             <div id="myTeamResults">
                 <div class="empty-state">
@@ -1371,6 +1373,63 @@ async function loadChipStatus() {
         });
     } else {
         html += '<div style="font-size:12px;color:var(--muted);">No strong chip recommendations for this gameweek — chips are best saved for the right moment.</div>';
+    }
+
+        html += '</div>';
+    el.innerHTML = html;
+}
+
+async function loadOptimalTransferCount() {
+    const teamId = document.getElementById('teamIdInput').value.trim();
+    if (!teamId) return;
+
+    const freeTransfers = document.getElementById('freeTransfers').value;
+    const el = document.getElementById('optimalTransferResults');
+    el.innerHTML = '<div class="loading-state"><div class="spinner"></div>Calculating best option…</div>';
+
+    const res = await fetch('/my-team/' + teamId + '/optimal-transfers?free_transfers=' + freeTransfers);
+    const data = await res.json();
+
+    if (data.error) {
+        el.innerHTML = '<div style="text-align:center;padding:16px;color:var(--muted);font-size:13px;">' + data.error + '</div>';
+        return;
+    }
+
+    const rec = data.recommended;
+
+    let html = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;">' +
+        '<div style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;">Optimal Transfer Strategy</div>' +
+        '<div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">';
+
+    data.all_options.forEach(opt => {
+        const isRecommended = opt.num_transfers === rec.num_transfers;
+        const bg = isRecommended ? 'var(--green-dim)' : 'var(--bg)';
+        const border = isRecommended ? 'var(--green)' : 'var(--border)';
+        const textColor = isRecommended ? 'var(--green)' : 'var(--text)';
+
+        html += '<div style="flex:1;min-width:100px;background:' + bg + ';border:2px solid ' + border + ';border-radius:10px;padding:14px;text-align:center;">' +
+            '<div style="font-size:20px;font-weight:800;color:' + textColor + ';">' + opt.num_transfers + '</div>' +
+            '<div style="font-size:10px;color:var(--muted);margin-bottom:6px;">transfer' + (opt.num_transfers !== 1 ? 's' : '') + '</div>' +
+            '<div style="font-size:12px;font-weight:700;color:' + (opt.net_gain > 0 ? 'var(--green)' : opt.net_gain < 0 ? 'var(--red)' : 'var(--muted)') + ';">' + (opt.net_gain > 0 ? '+' : '') + opt.net_gain + ' pts</div>' +
+            (isRecommended ? '<div style="font-size:9px;color:var(--green);font-weight:700;margin-top:4px;">✓ BEST</div>' : '') +
+        '</div>';
+    });
+
+    html += '</div>';
+
+    if (rec.num_transfers === 0) {
+        html += '<div style="padding:10px 14px;background:rgba(0,255,135,0.08);border-radius:8px;font-size:13px;color:var(--green);">✅ Your squad is already well optimized — no transfers needed this week.</div>';
+    } else {
+        html += '<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:10px;">Recommended: ' + rec.num_transfers + ' transfer' + (rec.num_transfers !== 1 ? 's' : '') + ' (net gain: +' + rec.net_gain + ' pts)</div>';
+
+        rec.transfers.forEach((t, i) => {
+            const costLabel = t.point_cost > 0 ? ' (-4 pts)' : ' (free)';
+            html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border-radius:8px;margin-bottom:8px;">' +
+                '<span style="font-size:11px;color:var(--muted);width:20px;">#' + (i+1) + '</span>' +
+                '<span style="flex:1;font-size:13px;"><strong style="color:var(--red);">' + t.transfer_out.name + '</strong> → <strong style="color:var(--green);">' + t.transfer_in.name + '</strong></span>' +
+                '<span style="font-size:11px;color:var(--muted);">' + costLabel + '</span>' +
+            '</div>';
+        });
     }
 
     html += '</div>';

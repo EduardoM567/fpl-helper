@@ -202,11 +202,18 @@ def suggest_transfer_route(team_id):
     if not team_data:
         return jsonify({'error': 'Team not found'}), 404
     
-    transfer = suggest_transfer(team_data)
-    if not transfer:
+    result = suggest_transfer(team_data, max_transfers=1, free_transfers=1)
+    if not result or not result.get('transfers'):
         return jsonify({'message': 'Your current lineup is already optimal — no beneficial transfer found!'})
     
-    return jsonify(transfer)
+    # Flatten to match what the frontend expects for a single transfer
+    t = result['transfers'][0]
+    return jsonify({
+        'transfer_out': t['transfer_out'],
+        'transfer_in': t['transfer_in'],
+        'price_diff': t['price_diff'],
+        'new_bank': result['new_bank']
+    })
 
 @app.route('/my-team/<int:team_id>/chips')
 def chips_status(team_id):
@@ -232,9 +239,17 @@ def preview_transfer(team_id):
     if not team_data:
         return jsonify({'error': 'Team not found'}), 404
     
-    transfer = suggest_transfer(team_data)
-    if not transfer:
+    result = suggest_transfer(team_data, max_transfers=1, free_transfers=1)
+    if not result or not result.get('transfers'):
         return jsonify({'message': 'No transfer needed — already optimal'})
+    
+    t = result['transfers'][0]
+    transfer = {
+        'transfer_out': t['transfer_out'],
+        'transfer_in': t['transfer_in'],
+        'price_diff': t['price_diff'],
+        'new_bank': result['new_bank']
+    }
     
     # Build the hypothetical new squad
     new_squad = [p for p in team_data['squad'] if p['id'] != transfer['transfer_out']['id']]
