@@ -96,14 +96,60 @@ def analyze_team(team_data, free_transfers=1):
                     'message': f"{p['name']} is {p['status_text']} — you have no bench cover, consider a transfer before the deadline{cost_note}."
                 })
 
-    # 2. Doubtful starters
+    # 2. Doubtful starters — give specific play/bench guidance based on actual percentage
     for p in starting:
         if p['status'] == 'd':
-            suggestions.append({
-                'type': 'warning',
-                'player': p['name'],
-                'message': f"{p['name']} is doubtful for GW{team_data['gameweek']} — check the team news before the deadline closes."
-            })
+            chance = p.get('chance_of_playing_next')
+            
+            if chance is not None:
+                same_pos_bench = [b for b in bench if b['position'] == p['position'] and b['status'] == 'a']
+                same_pos_bench.sort(key=lambda x: x['_priority'], reverse=True)
+                best_alt = same_pos_bench[0] if same_pos_bench else None
+                
+                if chance <= 25:
+                    if best_alt:
+                        suggestions.append({
+                            'type': 'urgent',
+                            'player': p['name'],
+                            'message': f"{p['name']} has only a {chance}% chance of playing — bench them for {best_alt['name']} to be safe."
+                        })
+                    else:
+                        suggestions.append({
+                            'type': 'urgent',
+                            'player': p['name'],
+                            'message': f"{p['name']} has only a {chance}% chance of playing and you have no safe bench alternative — consider a transfer."
+                        })
+                elif chance <= 50:
+                    if best_alt:
+                        suggestions.append({
+                            'type': 'warning',
+                            'player': p['name'],
+                            'message': f"{p['name']} is a {chance}% chance to play — risky. {best_alt['name']} on your bench is a safer starting option this week."
+                        })
+                    else:
+                        suggestions.append({
+                            'type': 'warning',
+                            'player': p['name'],
+                            'message': f"{p['name']} is only a {chance}% chance to play — risky, but you have no better bench option. Check team news before the deadline."
+                        })
+                elif chance <= 75:
+                    suggestions.append({
+                        'type': 'warning',
+                        'player': p['name'],
+                        'message': f"{p['name']} is a {chance}% chance to play — should be fine to start, but double check team news before the deadline."
+                    })
+                else:
+                    suggestions.append({
+                        'type': 'info',
+                        'player': p['name'],
+                        'message': f"{p['name']} is a {chance}% chance to play — likely fine to start, minor risk only."
+                    })
+            else:
+                suggestions.append({
+                    'type': 'warning',
+                    'player': p['name'],
+                    'message': f"{p['name']} is doubtful for GW{team_data['gameweek']} — check the team news before the deadline closes."
+                })
 
     # 3. Weak starter + hard fixture, paired with a stronger bench option at same position
     for p in starting:
