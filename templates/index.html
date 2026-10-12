@@ -696,6 +696,11 @@
 <script>
 let activeStrategy = 'balanced';
 
+function posEmoji(pos) {
+    const emojis = {'GKP':'🧤','DEF':'🛡️','MID':'⚡','FWD':'⚽'};
+    return emojis[pos] || '⚽';
+}
+
 function clearMyTeamResults(except) {
     const ids = ['comparisonResults', 'optimizedResults', 'transferSuggestionResults', 'chipResults', 'optimalTransferResults', 'transferPreviewResults'];
     ids.forEach(id => {
