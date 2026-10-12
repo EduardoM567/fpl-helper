@@ -77,7 +77,7 @@ def analyze_team(team_data, free_transfers=1):
     # 1. Injured/unavailable starters — find best same-position replacement (bench first, then any squad player)
     for p in starting:
         if p['status'] in ['i', 's', 'n']:
-            same_pos_bench = [b for b in bench if b['position'] == p['position']]
+            same_pos_bench = [b for b in bench if b['position'] == p['position'] and b['status'] == 'a']
             same_pos_bench.sort(key=lambda x: x['_priority'], reverse=True)
 
             if same_pos_bench:
@@ -267,10 +267,14 @@ def suggest_transfer(team_data, max_transfers=1, free_transfers=1):
     all_players = get_all_players()
     
     def calc_score(p):
+        if p['status'] in ['i', 's', 'n']:
+            return 0
         fix = p.get('next_fixture', {})
         fdr = fix.get('difficulty', 3)
         fdr_bonus = {1: 1.3, 2: 1.15, 3: 1.0, 4: 0.85, 5: 0.7}.get(fdr, 1.0)
-        return (p['form'] * 2 + p['ep_next'] * 3) * fdr_bonus
+        chance = p.get('chance_of_playing_next')
+        playing = chance / 100 if chance is not None else 1
+        return (p['form'] * 2 + p['ep_next'] * 3) * fdr_bonus * playing
     
     transfers = []
     remaining_bank = bank
@@ -287,7 +291,9 @@ def suggest_transfer(team_data, max_transfers=1, free_transfers=1):
             starting.extend(starters_dict.get(pos, []))
         
         already_swapped_out = set(t['transfer_out']['id'] for t in transfers)
-        candidates_to_replace = [p for p in starting if p['id'] not in already_swapped_out]
+        starter_ids = {s['id'] for s in starting}
+        injured_bench = [p for p in working_squad if p['status'] in ['i', 's', 'n'] and p['id'] not in starter_ids]
+        candidates_to_replace = [p for p in starting + injured_bench if p['id'] not in already_swapped_out]
         
         if not candidates_to_replace:
             break
@@ -460,6 +466,19 @@ def suggest_chip_timing(team_data, chip_status):
                 })
     
     return suggestions
+
+def apply_transfers(team_data, transfers):
+    out_ids = {t['transfer_out']['id'] for t in transfers}
+    new_squad = [p for p in team_data['squad'] if p['id'] not in out_ids]
+    for t in transfers:
+        inc = dict(t['transfer_in'])
+        inc['is_starting'] = True
+        inc['is_captain'] = False
+        inc['is_vice_captain'] = False
+        new_squad.append(inc)
+    hypo = dict(team_data)
+    hypo['squad'] = new_squad
+    return hypo
 
 if __name__ == '__main__':
     team = get_user_team(5292186)

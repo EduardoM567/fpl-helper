@@ -1512,8 +1512,47 @@ function renderTransferOptions(selectedCount) {
         });
     }
 
+    const n = selectedOption.num_transfers;
+    html += '<button class="btn btn-lg" onclick="previewMultiTransfer(' + n + ')" style="margin-top:14px;">👁️ ' +
+        (n === 0 ? 'Preview optimized lineup (no transfers)' : 'Preview lineup with these ' + n + ' transfer' + (n !== 1 ? 's' : '')) +
+        '</button><div id="multiPreviewResults" style="margin-top:16px;"></div>';
+
     html += '</div>';
     el.innerHTML = html;
+}
+
+async function previewMultiTransfer(n) {
+    const teamId = document.getElementById('teamIdInput').value.trim();
+    if (!teamId) return;
+    const free = document.getElementById('freeTransfers').value;
+    const el = document.getElementById('multiPreviewResults');
+    el.innerHTML = '<div class="loading-state"><div class="spinner"></div>Building lineup…</div>';
+
+    const res = await fetch('/my-team/' + teamId + '/preview-transfers?num=' + n + '&free_transfers=' + free);
+    const data = await res.json();
+    if (data.error || data.message) {
+        el.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:13px;">' + (data.error || data.message) + '</div>';
+        return;
+    }
+
+    const opt = data.optimized_lineup;
+    ['GKP', 'DEF', 'MID', 'FWD'].forEach(pos => {
+        (opt.starters[pos] || []).forEach(p => {
+            if (opt.captain && p.id === opt.captain.id) p._captain = true;
+            if (opt.vice_captain && p.id === opt.vice_captain.id) p._vc = true;
+        });
+    });
+
+    el.innerHTML =
+        '<div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Formation: <strong style="color:var(--text);">' + opt.formation + '</strong></div>' +
+        '<div class="pitch-wrapper"><div class="pitch-lines"></div>' +
+            pitchRow(opt.starters.FWD || [], false) +
+            pitchRow(opt.starters.MID || [], false) +
+            pitchRow(opt.starters.DEF || [], false) +
+            pitchRow(opt.starters.GKP || [], false) +
+            '<div class="bench-label">Bench</div>' +
+            pitchRow(opt.bench || [], true) +
+        '</div>';
 }
 </script>
 <!-- Mobile Bottom Nav -->

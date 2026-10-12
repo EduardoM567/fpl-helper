@@ -285,6 +285,22 @@ def optimal_transfers(team_id):
 def health():
     return 'ok', 200
 
+@app.route('/my-team/<int:team_id>/preview-transfers')
+def preview_transfers(team_id):
+    from team_lookup import get_user_team, suggest_transfer, get_optimized_lineup, apply_transfers
+    num = int(request.args.get('num', 1))
+    free = int(request.args.get('free_transfers', 1))
+    team_data = get_user_team(team_id)
+    if not team_data:
+        return jsonify({'error': 'Team not found'}), 404
+    if num == 0:
+        return jsonify({'optimized_lineup': get_optimized_lineup(team_data)})
+    result = suggest_transfer(team_data, max_transfers=num, free_transfers=free)
+    if not result or not result['transfers']:
+        return jsonify({'message': 'No beneficial transfers found.'})
+    optimized = get_optimized_lineup(apply_transfers(team_data, result['transfers']))
+    return jsonify({'optimized_lineup': optimized, 'total_point_cost': result['total_point_cost']})
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
     app.run(debug=False, host='0.0.0.0', port=port)
