@@ -281,6 +281,10 @@ def optimal_transfers(team_id):
     result = find_optimal_transfer_count(team_data, free_transfers)
     return jsonify(result)
 
+@app.route('/health')
+def health():
+    return 'ok', 200
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
     app.run(debug=False, host='0.0.0.0', port=port)

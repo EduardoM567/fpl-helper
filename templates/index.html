@@ -696,9 +696,14 @@
 <script>
 let activeStrategy = 'balanced';
 
-function posEmoji(pos) {
-    const emojis = {'GKP':'🧤','DEF':'🛡️','MID':'⚡','FWD':'⚽'};
-    return emojis[pos] || '⚽';
+function clearMyTeamResults(except) {
+    const ids = ['comparisonResults', 'optimizedResults', 'transferSuggestionResults', 'chipResults', 'optimalTransferResults', 'transferPreviewResults'];
+    ids.forEach(id => {
+        if (id !== except) {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = '';
+        }
+    });
 }
 
 function skeletonGrid(count) {
@@ -1223,6 +1228,7 @@ async function loadComparison() {
     const teamId = document.getElementById('teamIdInput').value.trim();
     if (!teamId) return;
 
+    clearMyTeamResults('comparisonResults');
     const el = document.getElementById('comparisonResults');
     el.innerHTML = '<div class="loading-state"><div class="spinner"></div>Comparing…</div>';
 
@@ -1255,6 +1261,7 @@ async function loadOptimizedLineup() {
     const teamId = document.getElementById('teamIdInput').value.trim();
     if (!teamId) return;
 
+    clearMyTeamResults('optimizedResults');
     const el = document.getElementById('optimizedResults');
     el.innerHTML = '<div class="loading-state"><div class="spinner"></div>Optimizing…</div>';
 
@@ -1294,6 +1301,7 @@ async function loadSuggestedTransfer() {
     const teamId = document.getElementById('teamIdInput').value.trim();
     if (!teamId) return;
 
+    clearMyTeamResults('transferSuggestionResults');
     const el = document.getElementById('transferSuggestionResults');
     el.innerHTML = '<div class="loading-state"><div class="spinner"></div>Finding best transfer…</div>';
 
@@ -1339,10 +1347,16 @@ async function loadSuggestedTransfer() {
 }
 
 async function previewTransfer() {
+    console.log('previewTransfer called');
     const teamId = document.getElementById('teamIdInput').value.trim();
     if (!teamId) return;
 
     const el = document.getElementById('transferPreviewResults');
+    console.log('element found:', el);
+    if (!el) {
+        console.error('transferPreviewResults element not found!');
+        return;
+    }
     el.innerHTML = '<div class="loading-state"><div class="spinner"></div>Building preview…</div>';
 
     const res = await fetch('/my-team/' + teamId + '/preview-transfer');
@@ -1384,6 +1398,7 @@ async function loadChipStatus() {
     const teamId = document.getElementById('teamIdInput').value.trim();
     if (!teamId) return;
 
+    clearMyTeamResults('chipResults');
     const el = document.getElementById('chipResults');
     el.innerHTML = '<div class="loading-state"><div class="spinner"></div>Checking chips…</div>';
 
