@@ -189,9 +189,15 @@ def build_team(strategy='balanced', budget=100.0):
         'position_counts': position_counts
     }
 
+def available_xp(p):
+    if p['status'] in ['i', 's', 'n']:
+        return 0
+    chance = p.get('chance_of_playing_next')
+    return p['ep_next'] * (chance / 100 if chance is not None else 1)
+
 def get_captain_suggestion(squad):
     outfield = [p for p in squad if p['position'] != 'GKP']
-    sorted_players = sorted(outfield, key=lambda x: x['ep_next'], reverse=True)
+    sorted_players = sorted(outfield, key=available_xp, reverse=True)
     captain = sorted_players[0] if sorted_players else None
     vice_captain = sorted_players[1] if len(sorted_players) > 1 else None
     return captain, vice_captain
@@ -201,10 +207,10 @@ def get_best_formation(squad):
     Pick the best starting 11 from the squad using valid FPL formations.
     Valid formations must have 1 GKP, 3-5 DEF, 2-5 MID, 1-3 FWD.
     """
-    gkp = [p for p in squad if p['position'] == 'GKP']
-    defenders = sorted([p for p in squad if p['position'] == 'DEF'], key=lambda x: x['ep_next'], reverse=True)
-    mids = sorted([p for p in squad if p['position'] == 'MID'], key=lambda x: x['ep_next'], reverse=True)
-    fwds = sorted([p for p in squad if p['position'] == 'FWD'], key=lambda x: x['ep_next'], reverse=True)
+    gkp = sorted([p for p in squad if p['position'] == 'GKP'], key=available_xp, reverse=True)
+    defenders = sorted([p for p in squad if p['position'] == 'DEF'], key=available_xp, reverse=True)
+    mids = sorted([p for p in squad if p['position'] == 'MID'], key=available_xp, reverse=True)
+    fwds = sorted([p for p in squad if p['position'] == 'FWD'], key=available_xp, reverse=True)
 
     # Valid formations: DEF-MID-FWD
     formations = [
@@ -230,7 +236,7 @@ def get_best_formation(squad):
         if len(starters) != 11:
             continue
 
-        score = sum(p['ep_next'] for p in starters)
+        score = sum(available_xp(p) for p in starters)
         if score > best_score:
             best_score = score
             best_starters = {
