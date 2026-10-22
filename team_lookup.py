@@ -221,7 +221,7 @@ def compare_to_optimal(team_data):
 
 def get_optimized_lineup(team_data):
     """Find the best possible starting 11 from the user's existing squad"""
-    from team_builder import get_best_formation
+    from team_builder import get_best_formation, MAX_PER_TEAM
     
     squad = team_data['squad']
     starters, bench = get_best_formation(squad)
@@ -259,7 +259,7 @@ def suggest_transfer(team_data, max_transfers=1, free_transfers=1):
     Each transfer beyond free_transfers costs -4 points.
     """
     from fpl_api import get_all_players
-    from team_builder import get_best_formation
+    from team_builder import get_best_formation, MAX_PER_TEAM
     
     squad = [dict(p) for p in team_data['squad']]  # work on copies
     bank = team_data['bank']
@@ -301,12 +301,19 @@ def suggest_transfer(team_data, max_transfers=1, free_transfers=1):
         weakest = min(candidates_to_replace, key=lambda x: x['_score'])
         max_price = weakest['price'] + remaining_bank
         
+               # Club counts for the squad after the outgoing player leaves
+        club_counts = {}
+        for sp in working_squad:
+            if sp['id'] != weakest['id']:
+                club_counts[sp['team']] = club_counts.get(sp['team'], 0) + 1
+
         candidates = [
             p for p in all_players
             if p['position'] == weakest['position']
             and p['id'] not in squad_ids
             and p['price'] <= max_price
             and p['status'] == 'a'
+            and club_counts.get(p['team'], 0) < MAX_PER_TEAM
         ]
         for p in candidates:
             p['_score'] = calc_score(p)
