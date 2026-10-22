@@ -221,8 +221,8 @@ def compare_to_optimal(team_data):
 
 def get_optimized_lineup(team_data):
     """Find the best possible starting 11 from the user's existing squad"""
-    from team_builder import get_best_formation, MAX_PER_TEAM
-    
+    from team_builder import get_best_formation, available_xp, explain_captain, MAX_PER_TEAM
+
     squad = team_data['squad']
     starters, bench = get_best_formation(squad)
     
@@ -232,11 +232,13 @@ def get_optimized_lineup(team_data):
         all_starters.extend(starters.get(pos_group, []))
     
     outfield = [p for p in all_starters if p['position'] != 'GKP']
-    outfield.sort(key=lambda x: x['ep_next'], reverse=True)
-    
+    outfield.sort(key=available_xp, reverse=True)
+
     captain = outfield[0] if outfield else None
     vice_captain = outfield[1] if len(outfield) > 1 else None
-    
+
+    reasons = explain_captain(captain, vice_captain, all_starters)
+
     # Compare to their current starting 11
     current_starters = [p for p in squad if p['is_starting']]
     current_ids = set(p['id'] for p in current_starters)
@@ -249,6 +251,8 @@ def get_optimized_lineup(team_data):
         'bench': bench,
         'captain': captain,
         'vice_captain': vice_captain,
+        'captain_reasons': reasons['captain'],
+        'vice_reasons': reasons['vice'],
         'formation': starters.get('formation', '4-4-2'),
         'changes_needed': changes_needed
     }

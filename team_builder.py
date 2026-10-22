@@ -202,6 +202,40 @@ def get_captain_suggestion(squad):
     vice_captain = sorted_players[1] if len(sorted_players) > 1 else None
     return captain, vice_captain
 
+def explain_captain(captain, vice, squad):
+    """Plain-English reasons for the captain and vice-captain picks.
+    Only states facts taken from the player data the tool actually used."""
+    def reasons_for(p, rival, role):
+        out = []
+        xp = available_xp(p)
+        out.append('Projected %.1f points next gameweek (FPL expected points)' % xp)
+        if rival is not None:
+            gap = xp - available_xp(rival)
+            if role == 'captain' and gap > 0:
+                out.append('%.1f ahead of the next best option, %s' % (gap, rival['name']))
+        fix = p.get('next_fixture') or {}
+        if fix.get('opponent'):
+            venue = ''
+            if fix.get('is_home') is True:
+                venue = ' (home)'
+            elif fix.get('is_home') is False:
+                venue = ' (away)'
+            out.append('Plays %s%s, fixture difficulty %s/5' % (fix['opponent'], venue, fix.get('difficulty', '?')))
+        out.append('Recent form: %s' % p.get('form', '?'))
+        if p.get('penalties_order') == 1:
+            out.append('First-choice penalty taker')
+        chance = p.get('chance_of_playing_next')
+        if p.get('status') == 'd' and chance is not None:
+            out.append('Warning: flagged doubtful (%d%% chance to play)' % chance)
+        if role == 'vice':
+            out.append('Takes over the armband (double points) if the captain does not play')
+        return out
+
+    return {
+        'captain': reasons_for(captain, vice, 'captain') if captain else [],
+        'vice': reasons_for(vice, None, 'vice') if vice else [],
+    }
+
 def get_best_formation(squad):
     """
     Pick the best starting 11 from the squad using valid FPL formations.

@@ -855,6 +855,25 @@ function pitchRow(players, isBench) {
     return '<div class="pitch-row">' + players.map(p => pitchPlayerHTML(p, isBench)).join('') + '</div>';
 }
 
+function captainReasonsHTML(opt) {
+    const block = (label, p, reasons) => {
+        if (!p || !reasons || !reasons.length) return '';
+        return '<div style="margin-bottom:10px;">' +
+            '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px;">' + label + ': ' + p.name + '</div>' +
+            '<ul style="margin:0;padding-left:18px;font-size:12px;color:var(--muted);line-height:1.6;">' +
+                reasons.map(r => '<li>' + r + '</li>').join('') +
+            '</ul>' +
+        '</div>';
+    };
+    const body = block('Captain', opt.captain, opt.captain_reasons) +
+                 block('Vice-captain', opt.vice_captain, opt.vice_reasons);
+    if (!body) return '';
+    return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-top:16px;">' +
+        '<div style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">Why this captain?</div>' +
+        body +
+    '</div>';
+}
+
 async function buildTeam() {
     document.getElementById('teamResult').innerHTML =
         '<div class="loading-state"><div class="spinner"></div>Building your squad…</div>';
@@ -1298,7 +1317,8 @@ async function loadOptimizedLineup() {
             pitchRow(data.starters.GKP || [], false) +
             '<div class="bench-label">Bench</div>' +
                        pitchRow(data.bench || [], true) +
-        '</div>';
+        '</div>' +
+        captainReasonsHTML(data);
     el.innerHTML = html;
 }
 
@@ -1396,7 +1416,8 @@ async function previewTransfer() {
             pitchRow(opt.starters.GKP || [], false) +
             '<div class="bench-label">Bench</div>' +
             pitchRow(opt.bench || [], true) +
-        '</div>';
+        '</div>' +
+        captainReasonsHTML(opt);
 }
 
 async function loadChipStatus() {
@@ -1557,7 +1578,8 @@ async function previewMultiTransfer(n) {
             pitchRow(opt.starters.GKP || [], false) +
             '<div class="bench-label">Bench</div>' +
             pitchRow(opt.bench || [], true) +
-        '</div>';
+        '</div>' +
+        captainReasonsHTML(opt);
 }
 </script>
 <!-- Mobile Bottom Nav -->
