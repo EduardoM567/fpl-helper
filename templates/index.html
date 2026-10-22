@@ -792,6 +792,7 @@ function playerCard(p) {
                 '<div class="ownership-bar"><div class="ownership-fill" style="width:' + own + '%"></div></div>' +
             '</div>' +
         '</div>' +
+        (p.news && p.status !== 'a' ? '<div style="margin-top:8px;font-size:11px;color:var(--muted);line-height:1.4;">' + p.news + '</div>' : '') +
         (fix.opponent ?
             '<div style="margin-top:10px;padding:8px 12px;background:var(--bg);border-radius:8px;display:flex;justify-content:space-between;align-items:center;">' +
                 '<span style="font-size:12px;color:var(--muted);">GW' + fix.gameweek + ': <strong style="color:var(--text)">' + fix.opponent + '</strong> <span style="color:var(--muted)">(' + homeAway + ')</span></span>' +
@@ -848,11 +849,24 @@ function pitchPlayerHTML(p, isBench) {
         '</div>' +
         '<div class="pitch-name">' + p.name + '</div>' +
         '<div class="pitch-price">£' + p.price + 'm</div>' +
+        (p.news && p.status && p.status !== 'a'
+            ? '<div title="' + p.news.replace(/"/g, '&quot;') + '" style="font-size:8px;color:rgba(255,255,255,0.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + p.news + '</div>'
+            : '') +
     '</div>';
 }
 
 function pitchRow(players, isBench) {
     return '<div class="pitch-row">' + players.map(p => pitchPlayerHTML(p, isBench)).join('') + '</div>';
+}
+
+function transferReasonsHTML(reasons, label, wrapStyle) {
+    if (!reasons || !reasons.length) return '';
+    return '<div style="' + wrapStyle + '">' +
+        (label ? '<div style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">' + label + '</div>' : '') +
+        '<ul style="margin:0;padding-left:18px;font-size:12px;color:var(--muted);line-height:1.6;">' +
+            reasons.map(r => '<li>' + r + '</li>').join('') +
+        '</ul>' +
+    '</div>';
 }
 
 function captainReasonsHTML(opt) {
@@ -1212,6 +1226,7 @@ async function loadMyTeam() {
                 const style = suggestionColors[s.type] || suggestionColors.info;
                 html += '<div style="background:' + style.bg + ';border:1px solid ' + style.border + ';border-radius:10px;padding:12px 16px;margin-bottom:8px;font-size:13px;color:var(--text);">' +
                     style.icon + ' ' + s.message +
+                    (s.news ? '<div style="margin-top:4px;font-size:11px;color:var(--muted);">' + s.news + '</div>' : '') +
                 '</div>';
             });
         }
@@ -1353,6 +1368,7 @@ async function loadSuggestedTransfer() {
                     '<img src="' + (out.photo_url || '/static/placeholder.svg') + '" onerror="this.src=\'/static/placeholder.svg\'" style="width:56px;height:70px;object-fit:cover;border-radius:8px;margin-bottom:6px;">' +
                     '<div style="font-weight:700;font-size:14px;">' + out.name + '</div>' +
                     '<div style="font-size:11px;color:var(--muted);">£' + out.price + 'm</div>' +
+                    (out.news && out.status !== 'a' ? '<div style="font-size:11px;color:var(--muted);margin-top:4px;">' + out.news + '</div>' : '') +
                 '</div>' +
                 '<div style="font-size:24px;color:var(--muted);">→</div>' +
                 '<div style="flex:1;text-align:center;">' +
@@ -1366,6 +1382,7 @@ async function loadSuggestedTransfer() {
                 '<span style="color:var(--muted);">Cost: <strong style="color:' + diffColor + ';">' + diffSign + '£' + data.price_diff + 'm</strong></span>' +
                 '<span style="color:var(--muted);">New bank: <strong style="color:var(--text);">£' +data.new_bank + 'm</strong></span>' +
             '</div>' +
+            transferReasonsHTML(data.reasons, 'Why this transfer?', 'margin-top:14px;padding-top:14px;border-top:1px solid var(--border);') +
             '<button class="btn btn-lg" onclick="previewTransfer()" style="margin-top:14px;">👁️ Preview Optimized Lineup After This Transfer</button>' +
         '</div>' +
         '<div id="transferPreviewResults" style="margin-top:16px;"></div>';
@@ -1535,6 +1552,7 @@ function renderTransferOptions(selectedCount) {
                 '<span style="flex:1;font-size:13px;"><strong style="color:var(--red);">' + t.transfer_out.name + '</strong> → <strong style="color:var(--green);">' + t.transfer_in.name + '</strong></span>' +
                 '<span style="font-size:11px;color:var(--muted);">' + costLabel + '</span>' +
             '</div>';
+            html += transferReasonsHTML(t.reasons, '', 'margin:-2px 0 10px;padding-left:42px;');
         });
     }
 

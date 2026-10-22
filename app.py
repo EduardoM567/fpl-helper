@@ -212,7 +212,8 @@ def suggest_transfer_route(team_id):
         'transfer_out': t['transfer_out'],
         'transfer_in': t['transfer_in'],
         'price_diff': t['price_diff'],
-        'new_bank': result['new_bank']
+        'new_bank': result['new_bank'],
+        'reasons': t.get('reasons', [])
     })
 
 @app.route('/my-team/<int:team_id>/chips')
@@ -248,7 +249,8 @@ def preview_transfer(team_id):
         'transfer_out': t['transfer_out'],
         'transfer_in': t['transfer_in'],
         'price_diff': t['price_diff'],
-        'new_bank': result['new_bank']
+        'new_bank': result['new_bank'],
+        'reasons': t.get('reasons', [])
     }
     
     # Build the hypothetical new squad

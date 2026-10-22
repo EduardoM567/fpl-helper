@@ -101,7 +101,7 @@ def get_all_players():
             'bonus': p['bonus'],
             'bps': p['bps'],
             'status': p['status'],
-            'news': p['news'],
+            'news': p.get('news') or '',
             'ep_next': float(p['ep_next'] or 0),
             'transfers_in': p['transfers_in_event'],
             'transfers_out': p['transfers_out_event'],

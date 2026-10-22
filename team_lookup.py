@@ -85,6 +85,7 @@ def analyze_team(team_data, free_transfers=1):
                 suggestions.append({
                     'type': 'urgent',
                     'player': p['name'],
+                    'news': p.get('news', ''),
                     'message': f"{p['name']} is {p['status_text']} — start {best['name']} from your bench instead."
                 })
             else:
@@ -93,6 +94,7 @@ def analyze_team(team_data, free_transfers=1):
                 suggestions.append({
                     'type': 'urgent',
                     'player': p['name'],
+                    'news': p.get('news', ''),
                     'message': f"{p['name']} is {p['status_text']} — you have no bench cover, consider a transfer before the deadline{cost_note}."
                 })
 
@@ -111,12 +113,14 @@ def analyze_team(team_data, free_transfers=1):
                         suggestions.append({
                             'type': 'urgent',
                             'player': p['name'],
+                            'news': p.get('news', ''),
                             'message': f"{p['name']} has only a {chance}% chance of playing — bench them for {best_alt['name']} to be safe."
                         })
                     else:
                         suggestions.append({
                             'type': 'urgent',
                             'player': p['name'],
+                            'news': p.get('news', ''),
                             'message': f"{p['name']} has only a {chance}% chance of playing and you have no safe bench alternative — consider a transfer."
                         })
                 elif chance <= 50:
@@ -124,30 +128,35 @@ def analyze_team(team_data, free_transfers=1):
                         suggestions.append({
                             'type': 'warning',
                             'player': p['name'],
+                            'news': p.get('news', ''),
                             'message': f"{p['name']} is a {chance}% chance to play — risky. {best_alt['name']} on your bench is a safer starting option this week."
                         })
                     else:
                         suggestions.append({
                             'type': 'warning',
                             'player': p['name'],
+                            'news': p.get('news', ''),
                             'message': f"{p['name']} is only a {chance}% chance to play — risky, but you have no better bench option. Check team news before the deadline."
                         })
                 elif chance <= 75:
                     suggestions.append({
                         'type': 'warning',
                         'player': p['name'],
+                        'news': p.get('news', ''),
                         'message': f"{p['name']} is a {chance}% chance to play — should be fine to start, but double check team news before the deadline."
                     })
                 else:
                     suggestions.append({
                         'type': 'info',
                         'player': p['name'],
+                        'news': p.get('news', ''),
                         'message': f"{p['name']} is a {chance}% chance to play — likely fine to start, minor risk only."
                     })
             else:
                 suggestions.append({
                     'type': 'warning',
                     'player': p['name'],
+                    'news': p.get('news', ''),
                     'message': f"{p['name']} is doubtful for GW{team_data['gameweek']} — check the team news before the deadline closes."
                 })
 
@@ -257,6 +266,52 @@ def get_optimized_lineup(team_data):
         'changes_needed': changes_needed
     }
 
+def transfer_reasons(out_p, in_p, point_cost):
+    """Plain-English reasons for one transfer, using only the player data the tool used."""
+    from team_builder import available_xp
+
+    def fixture_text(p):
+        fix = p.get('next_fixture') or {}
+        if not fix.get('opponent'):
+            return None
+        venue = ''
+        if fix.get('is_home') is True:
+            venue = ' (home)'
+        elif fix.get('is_home') is False:
+            venue = ' (away)'
+        return '%s%s, fixture difficulty %s/5' % (fix['opponent'], venue, fix.get('difficulty', '?'))
+
+    out_xp = available_xp(out_p)
+    in_xp = available_xp(in_p)
+    reasons = []
+
+    reasons.append('%s projects %.1f points next gameweek' % (out_p['name'], out_xp))
+    status = out_p.get('status')
+    if status in ['i', 's', 'n', 'd']:
+        label = get_player_status(status).lower()
+        chance = out_p.get('chance_of_playing_next')
+        if status == 'd' and chance is not None:
+            label += ' (%d%% chance to play)' % chance
+        line = '%s is flagged %s' % (out_p['name'], label)
+        if out_p.get('news'):
+            line += ': ' + out_p['news']
+        reasons.append(line)
+    out_fix = out_p.get('next_fixture') or {}
+    if (out_fix.get('difficulty') or 0) >= 4 and fixture_text(out_p):
+        reasons.append('%s has a tough fixture: %s' % (out_p['name'], fixture_text(out_p)))
+
+    reasons.append('%s projects %.1f points next gameweek' % (in_p['name'], in_xp))
+    reasons.append("%s's recent form: %s" % (in_p['name'], in_p.get('form', '?')))
+    if fixture_text(in_p):
+        reasons.append('%s plays %s' % (in_p['name'], fixture_text(in_p)))
+    if in_p.get('penalties_order') == 1:
+        reasons.append('%s is the first-choice penalty taker' % in_p['name'])
+
+    reasons.append('%+.1f projected points versus the player leaving' % (in_xp - out_xp))
+    if point_cost > 0:
+        reasons.append('Costs a -%d point hit' % point_cost)
+    return reasons
+
 def suggest_transfer(team_data, max_transfers=1, free_transfers=1):
     """
     Suggest the best transfer(s), supporting multiple transfers with point cost awareness.
@@ -336,7 +391,8 @@ def suggest_transfer(team_data, max_transfers=1, free_transfers=1):
             'transfer_out': weakest,
             'transfer_in': best,
             'price_diff': price_diff,
-            'point_cost': cost
+            'point_cost': cost,
+            'reasons': transfer_reasons(weakest, best, cost)
         })
         
         # Apply this transfer to the working squad for the next iteration
@@ -365,6 +421,8 @@ def find_optimal_transfer_count(team_data, free_transfers=1, max_to_try=3):
     Try different numbers of transfers and recommend the one with the best 
     net benefit (score improvement minus point cost).
     """
+    from team_builder import available_xp
+
     results = []
     
     for n in range(0, max_to_try + 1):
@@ -381,9 +439,9 @@ def find_optimal_transfer_count(team_data, free_transfers=1, max_to_try=3):
         if not suggestion or len(suggestion['transfers']) < n:
             break
         
-        # Estimate gain: sum of (incoming ep_next - outgoing ep_next) across all transfers
+        # Estimate gain: sum of (incoming - outgoing availability-adjusted xP) across all transfers
         gain = sum(
-            t['transfer_in']['ep_next'] - t['transfer_out']['ep_next']
+            available_xp(t['transfer_in']) - available_xp(t['transfer_out'])
             for t in suggestion['transfers']
         )
         net_gain = round(gain - suggestion['total_point_cost'], 2)
